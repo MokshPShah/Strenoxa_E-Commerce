@@ -2,12 +2,12 @@ import Link from "next/link"
 import { FaDumbbell, FaBolt, FaFlask, FaPills, FaTshirt, FaShoppingBag, } from "react-icons/fa"
 
 const categoriesData = [
-    { name: 'Protien', icon: FaDumbbell, href: '/protein' },
-    { name: 'Pre-Workout', icon: FaBolt, href: '/pre-workout' },
-    { name: 'Creatine', icon: FaFlask, href: '/creatine' },
-    { name: 'Vitamins', icon: FaPills, href: '/vitamins' },
-    { name: 'Apparel', icon: FaTshirt, href: '/apparel' },
-    { name: 'Accessories', icon: FaShoppingBag, href: '/accessories' },
+    { name: 'Protien', icon: FaDumbbell, href: 'shop?category=protein' },
+    { name: 'Pre-Workout', icon: FaBolt, href: 'shop?category=pre-workout' },
+    { name: 'Creatine', icon: FaFlask, href: 'shop?category=creatine' },
+    { name: 'Vitamins', icon: FaPills, href: 'shop?category=vitamins' },
+    { name: 'Apparel', icon: FaTshirt, href: 'shop?category=apparel' },
+    { name: 'Accessories', icon: FaShoppingBag, href: 'shop?category=accessories' },
 ]
 
 export default function Categories() {

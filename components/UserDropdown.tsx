@@ -102,7 +102,7 @@ export default function UserDropdown() {
                     </Link>
 
                     <Link
-                        href="/favorites"
+                        href="/dashboard/favorites"
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer"
                     >

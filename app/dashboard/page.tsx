@@ -1,114 +1,165 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { redirect } from "next/navigation";
-import connectDB from "@/lib/mongodb";
-import User from "@/models/User";
-import Order from "@/models/Order";
-import UserDashboardShell from "@/components/UserDashboardShell";
-import { FaShoppingBag, FaClock, FaUser } from "react-icons/fa";
+"use client";
 
-export default async function DashboardPage() {
-    const session = await getServerSession(authOptions);
-    
-    // Protect the route: If no session or email, send to login
-    if (!session || !session.user?.email) {
-        redirect("/login");
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { 
+  FaHeart, 
+  FaCartPlus, 
+  FaBoxOpen, 
+  FaSpinner, 
+  FaHistory, 
+  FaMapMarkerAlt, 
+  FaCog, 
+  FaArrowRight, 
+  FaUserCircle 
+} from "react-icons/fa";
+
+export interface DashboardSummary {
+  favoriteCount: number;
+  validCartItemCount: number;
+  outOfStockCartItemCount: number;
+}
+
+export default function DashboardPage() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const res = await fetch('/api/dashboard/summary');
+        if (!res.ok) throw new Error("Failed to fetch dashboard summary");
+        const data = await res.json();
+        setSummary(data);
+      } catch (error) {
+        console.error("Dashboard error:", error);
+      } finally {
+        setLoading(false);
+      }
     }
+    fetchDashboardData();
+  }, []);
 
-    await connectDB();
-    
-    // 1. Fetch the true MongoDB user by email to guarantee we have the correct ObjectId
-    const dbUser = await User.findOne({ email: session.user.email }).select("_id");
-
-    if (!dbUser) {
-        return (
-            <UserDashboardShell>
-                <div className="p-8 text-center text-slate-500">
-                    User account not found. Please log out and log back in.
-                </div>
-            </UserDashboardShell>
-        );
-    }
-
-    // 2. Safely use the MongoDB ObjectId to fetch basic stats
-    const orderCount = await Order.countDocuments({ user: dbUser._id });
-    const recentOrders = await Order.find({ user: dbUser._id })
-        .sort({ createdAt: -1 })
-        .limit(3)
-        .lean();
-
+  if (loading) {
     return (
-        <UserDashboardShell>
-            <div className="mb-8">
-                <h1 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter">
-                    Welcome back, <span className="text-[#ec1313]">{session.user?.name}</span>
-                </h1>
-                <p className="text-slate-500 font-medium">Manage your orders and account settings from here.</p>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="w-10 h-10 bg-red-50 text-[#ec1313] rounded-xl flex items-center justify-center mb-4">
-                        <FaShoppingBag />
-                    </div>
-                    <p className="text-2xl font-black text-slate-900">{orderCount}</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Total Orders</p>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-                        <FaUser />
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 truncate">{session.user?.email}</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Account Email</p>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="w-10 h-10 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center mb-4">
-                        <FaClock />
-                    </div>
-                    <p className="text-sm font-bold text-slate-900">Elite Member</p>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Status</p>
-                </div>
-            </div>
-
-            {/* Recent Orders Section */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
-                    <h2 className="font-black text-slate-900 uppercase tracking-tight">Recent Orders</h2>
-                    <a href="/dashboard/orders" className="text-xs font-bold text-[#ec1313] hover:underline uppercase tracking-widest cursor-pointer">View All</a>
-                </div>
-                
-                <div className="p-2">
-                    {recentOrders.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 font-medium text-sm">
-                            No orders placed yet.
-                        </div>
-                    ) : (
-                        recentOrders.map((order: any) => (
-                            <div key={order._id.toString()} className="p-4 hover:bg-slate-50 rounded-2xl transition-all flex items-center justify-between group cursor-pointer">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs">
-                                        #{order._id.toString().slice(-4).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-900">
-                                            ${(order.totalAmount || 0).toFixed(2)}
-                                        </p>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">
-                                            {new Date(order.createdAt).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                </div>
-                                <span className="text-[10px] font-black uppercase px-3 py-1 bg-slate-100 rounded-full text-slate-600 group-hover:bg-red-50 group-hover:text-[#ec1313] transition-colors">
-                                    {order.status || 'Processing'}
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        </UserDashboardShell>
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center pt-24">
+        <FaSpinner className="animate-spin text-4xl text-[#ec1313]" />
+      </div>
     );
+  }
+
+  if (!summary) return null;
+
+  return (
+    <div className="min-h-screen bg-[#f8f9fa] pt-32 pb-24">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8">
+        
+        {/* Dashboard Header */}
+        <div className="flex items-center justify-between mb-12 border-b border-slate-200 pb-8">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-400 overflow-hidden shadow-inner">
+                <FaUserCircle size={64} className="mt-2" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#ec1313] uppercase tracking-widest mb-1">Welcome Back</p>
+              <h1 className="text-4xl font-black text-slate-950 uppercase tracking-tighter">
+                Your Dashboard
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Summary Stats */}
+        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">At a Glance</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          
+          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6 group hover:shadow-md transition-all duration-300">
+            <div className="w-16 h-16 bg-red-50 text-[#ec1313] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+              <FaHeart size={24} />
+            </div>
+            <div>
+              <p className="text-4xl font-black text-slate-900 tracking-tighter">{summary.favoriteCount}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Saved Items</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6 group hover:shadow-md transition-all duration-300">
+            <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+              <FaCartPlus size={24} />
+            </div>
+            <div>
+              <p className="text-4xl font-black text-slate-900 tracking-tighter">{summary.validCartItemCount}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">In Cart</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6 group hover:shadow-md transition-all duration-300">
+            <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+              <FaBoxOpen size={24} />
+            </div>
+            <div>
+              <p className="text-4xl font-black text-slate-900 tracking-tighter">{summary.outOfStockCartItemCount}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Out of Stock</p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Account Management Links */}
+        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6">Account Management</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          
+          <DashboardLink 
+            href="/dashboard/orders"
+            icon={<FaHistory size={20} />}
+            title="Order History"
+            description="Track packages, view receipts, and buy again."
+          />
+          
+          <DashboardLink 
+            href="/dashboard/addresses"
+            icon={<FaMapMarkerAlt size={20} />}
+            title="Saved Addresses"
+            description="Manage your shipping and billing locations."
+          />
+          
+          <DashboardLink 
+            href="/dashboard/settings"
+            icon={<FaCog size={20} />}
+            title="Account Settings"
+            description="Update your password, email, and preferences."
+          />
+          
+          <DashboardLink 
+            href="/favorites"
+            icon={<FaHeart size={20} />}
+            title="Your Wishlist"
+            description="View and manage your favorited gear."
+          />
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// Reusable link component for the bottom grid
+function DashboardLink({ href, icon, title, description }: { href: string, icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <Link href={href} className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-slate-300 hover:shadow-md transition-all duration-300 cursor-pointer">
+      <div className="flex items-center gap-6">
+        <div className="w-14 h-14 bg-slate-50 border border-slate-100 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-slate-950 group-hover:text-white transition-colors duration-300 flex-shrink-0">
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight group-hover:text-[#ec1313] transition-colors">{title}</h3>
+          <p className="text-sm text-slate-500 font-medium mt-1">{description}</p>
+        </div>
+      </div>
+      <div className="text-slate-300 group-hover:text-[#ec1313] transition-all transform group-hover:translate-x-1 flex-shrink-0 ml-4 hidden sm:block">
+        <FaArrowRight />
+      </div>
+    </Link>
+  );
 }

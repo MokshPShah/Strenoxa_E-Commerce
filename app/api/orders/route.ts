@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     }
     const { shippingAddress } = await req.json()
 
+    // 1. Strict Address Validation
     if (
       !shippingAddress ||
       !shippingAddress.street ||
@@ -34,22 +35,25 @@ export async function POST(req: Request) {
 
     await connectDB()
 
+    // 2. Fetch the true cart directly from the database, ignoring frontend prices
     const user = await User.findOne({ email: session.user.email }).populate(
       'cart.productId'
     )
 
-    if (!user || user.cart.length === 0) {
+    if (!user || !user.cart || user.cart.length === 0) {
       return NextResponse.json(
         { message: 'Your cart is empty' },
         { status: 400 }
       )
     }
 
-    let totalAmount = 0
+    let subTotal = 0
     const orderItems = []
 
+    // 3. Verify stock and calculate exact server-side pricing
     for (const cartItem of user.cart) {
       const product = cartItem.productId
+
       if (!product || product.isDeleted) {
         return NextResponse.json(
           { message: 'A product in your cart is no longer in stock' },
@@ -71,36 +75,43 @@ export async function POST(req: Request) {
         name: product.name,
         price: product.price,
         quantity: cartItem.quantity,
-        flavor: product.flavors?.length > 0 ? product.flavors[0] : "Standard"
+        flavor: cartItem.flavor || "Standard"
       })
 
-      totalAmount += product.price * cartItem.quantity
+      subTotal += product.price * cartItem.quantity
     }
 
+    const shippingFee = subTotal > 100 ? 0 : 10;
+    const finalTotalAmount = subTotal + shippingFee;
+
+    // 4. Create the Order
     const newOrder = await Order.create({
       user: user._id,
       items: orderItems,
-      totalAmount: parseFloat(totalAmount.toFixed(2)),
-      status: 'Pending',
+      totalAmount: parseFloat(finalTotalAmount.toFixed(2)),
+      status: 'Processing',
       shippingAddress
     })
 
+    // 5. Deduct Inventory Stock
     for (const item of orderItems) {
       await Product.findByIdAndUpdate(item.productId, {
         $inc: { stock: -item.quantity }
       })
     }
 
+    // 6. Securely Clear User Cart
     user.cart = []
     await user.save()
 
+    // 7. Log the Activity for Super Admins
     await ActivityLog.create({
       userEmail: user.email,
       action: 'New Order Placed',
       details: `Order #${newOrder._id
         .toString()
         .slice(-8)
-        .toUpperCase()} for $${totalAmount.toFixed(2)}`
+        .toUpperCase()} for $${subTotal.toFixed(2)}`
     })
 
     return NextResponse.json(

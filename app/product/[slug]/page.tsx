@@ -28,6 +28,7 @@ interface ProductData {
     category: string;
     flavors: string[];
     images: string[];
+    stock: number;
     inStock: boolean;
 }
 
@@ -71,15 +72,16 @@ export default function ProductPage() {
 
     const handleAddToCart = () => {
         if (!product) return;
+        // It MUST look like this:
         dispatch(addToCart({
             _id: product._id,
             name: product.name,
             price: product.price,
             image: product.images[0],
             slug: product.slug,
-            quantity: quantity,
-            flavor: selectedFlavor
-        }));
+            flavor: selectedFlavor,
+            stock: product.stock
+        }))
         toast.success(`${quantity}x ${product.name} (${selectedFlavor}) added!`);
     };
 
@@ -155,8 +157,8 @@ export default function ProductPage() {
                                             key={flavor}
                                             onClick={() => setSelectedFlavor(flavor)}
                                             className={`px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${selectedFlavor === flavor
-                                                    ? "border-[#ec1313] bg-red-50 text-[#ec1313]"
-                                                    : "border-slate-100 text-slate-500 hover:border-slate-300 bg-white"
+                                                ? "border-[#ec1313] bg-red-50 text-[#ec1313]"
+                                                : "border-slate-100 text-slate-500 hover:border-slate-300 bg-white"
                                                 }`}
                                         >
                                             {flavor}

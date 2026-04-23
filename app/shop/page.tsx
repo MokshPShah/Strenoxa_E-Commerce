@@ -11,6 +11,7 @@ import { FaHeart, FaShoppingCart, FaCheck, FaFilter, FaTimes } from "react-icons
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// 1. FIX: Added `stock: number` to the interface
 interface Product {
     _id: string;
     name: string;
@@ -19,6 +20,7 @@ interface Product {
     category: string;
     images: string[];
     isTrending: boolean;
+    stock: number; // <--- ADDED
 }
 
 function ShopContent() {
@@ -202,14 +204,22 @@ function ShopContent() {
                         {filteredAndSortedProducts.map((product) => {
                             const isFavorited = favoriteItems.some(item => item._id === product._id);
                             const isInCart = cartItems.some(item => item._id === product._id);
+                            
+                            // 2. NEW: Protect quick add if out of stock
+                            const isOutOfStock = product.stock <= 0;
 
                             return (
-                                <div key={product._id} className="group flex flex-col relative bg-white rounded-3xl p-4 shadow-sm border border-slate-100 transition-shadow hover:shadow-xl cursor-pointer">
+                                <div key={product._id} className={`group flex flex-col relative bg-white rounded-3xl p-4 shadow-sm border border-slate-100 transition-shadow hover:shadow-xl cursor-pointer ${isOutOfStock ? 'opacity-70' : ''}`}>
                                     <div className="relative aspect-square bg-slate-50 rounded-2xl overflow-hidden mb-6 border border-slate-100">
                                         <div className="absolute top-4 left-4 z-20">
-                                            {product.isTrending && (
+                                            {product.isTrending && !isOutOfStock && (
                                                 <span className="bg-[#ec1313] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md shadow-red-500/30">
                                                     Hot
+                                                </span>
+                                            )}
+                                            {isOutOfStock && (
+                                                <span className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md">
+                                                    Out of Stock
                                                 </span>
                                             )}
                                         </div>
@@ -236,7 +246,7 @@ function ShopContent() {
                                                 src={product.images[0]} 
                                                 alt={product.name} 
                                                 fill 
-                                                className="object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6" 
+                                                className={`object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6 ${isOutOfStock ? 'grayscale' : ''}`} 
                                             />
                                         </Link>
                                     </div>
@@ -267,13 +277,26 @@ function ShopContent() {
                                                 <button 
                                                     onClick={(e) => {
                                                         e.preventDefault();
+                                                        if(isOutOfStock) {
+                                                            toast.error("This product is currently out of stock");
+                                                            return;
+                                                        }
+                                                        
+                                                        // 3. FIX: Send the stock property when adding!
                                                         dispatch(addToCart({
-                                                            _id: product._id, name: product.name, price: product.price, image: product.images[0] || "", slug: product.slug, quantity: 1
+                                                            _id: product._id, 
+                                                            name: product.name, 
+                                                            price: product.price, 
+                                                            image: product.images[0] || "", 
+                                                            slug: product.slug, 
+                                                            quantity: 1,
+                                                            stock: product.stock
                                                         }));
                                                         toast.success(`${product.name} added!`);
                                                     }}
-                                                    className="w-12 h-12 bg-slate-950 text-white rounded-xl flex justify-center items-center hover:bg-slate-800 transition-colors cursor-pointer shadow-md shadow-slate-900/20 hover:scale-105 active:scale-95"
-                                                    title="Quick Add"
+                                                    disabled={isOutOfStock}
+                                                    className="w-12 h-12 bg-slate-950 text-white rounded-xl flex justify-center items-center hover:bg-slate-800 transition-colors cursor-pointer shadow-md shadow-slate-900/20 hover:scale-105 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:hover:scale-100"
+                                                    title={isOutOfStock ? "Out of Stock" : "Quick Add"}
                                                 >
                                                     <FaShoppingCart size={16} />
                                                 </button>

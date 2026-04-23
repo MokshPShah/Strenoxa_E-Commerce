@@ -8,6 +8,7 @@ export interface CartItem {
   slug: string
   quantity: number
   flavor?: string
+  stock: number;
 }
 
 interface CartState {
@@ -38,6 +39,7 @@ const cartSlice = createSlice({
 
       if (existingItem) {
         existingItem.quantity += amountToAdd
+        existingItem.stock = action.payload.stock
       } else {
         state.items.push({ ...action.payload, quantity: amountToAdd })
       }
@@ -86,6 +88,6 @@ const cartSlice = createSlice({
   }
 })
 
-export const { addToCart, decreaseQuantity, removeFromCart, setCart } =
+export const { addToCart, decreaseQuantity, removeFromCart, setCart, clearCart } =
   cartSlice.actions
 export default cartSlice.reducer

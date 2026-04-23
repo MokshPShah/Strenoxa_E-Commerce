@@ -2,7 +2,6 @@ import connectDB from '@/lib/mongodb'
 import Product from '@/models/Product'
 import { NextResponse } from 'next/server'
 
-// 🚨 THIS IS THE MAGIC LINE: It completely disables Next.js caching for this API route
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
@@ -22,13 +21,17 @@ export async function GET(req: Request) {
       query.isTrending = true
     }
 
-    // .lean() strips the heavy Mongoose wrappers so Next.js can parse it into JSON
     const products = await Product.find(query).sort({ createdAt: -1 }).lean()
 
-    // Adding this console.log so you can see the real data in your VS Code terminal
-    console.log(`[API] Fetched ${products.length} products from DB.`);
+    // 🚨 THE FIX: Force 'undefined' stock from old MongoDB documents to safely evaluate to 0
+    const normalizedProducts = products.map((p: any) => ({
+      ...p,
+      stock: p.stock ?? 0 
+    }));
 
-    return NextResponse.json(products, { status: 200 })
+    console.log(`[API] Fetched ${normalizedProducts.length} products from DB.`);
+
+    return NextResponse.json(normalizedProducts, { status: 200 })
   } catch (error) {
     console.error('Products API Error:', error)
     return NextResponse.json(
@@ -38,7 +41,6 @@ export async function GET(req: Request) {
   }
 }
 
-// ... Keep your existing POST function down here exactly as it was
 export async function POST(request: Request) {
   try {
     await connectDB();

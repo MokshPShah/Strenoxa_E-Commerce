@@ -19,6 +19,7 @@ interface Product {
     category: string;
     images: string[];
     isTrending: boolean;
+    stock: number;
 }
 
 export default function Trending() {
@@ -26,7 +27,7 @@ export default function Trending() {
     const [loading, setLoading] = useState(true);
     const dispatch = useDispatch();
     const router = useRouter();
-    
+
     const favoriteItems = useSelector((state: RootState) => state.favorites.items);
     const cartItems = useSelector((state: RootState) => state.cart.items);
 
@@ -35,17 +36,16 @@ export default function Trending() {
             try {
                 const res = await fetch('/api/products?trending=true');
                 const data = await res.json();
-                
-                // FIX: Check if the response is actually an array before setting state
+
                 if (Array.isArray(data)) {
                     setProducts(data);
                 } else {
                     console.error("API Error or Invalid Data:", data);
-                    setProducts([]); // Fallback to empty array to prevent crashes
+                    setProducts([]); 
                 }
             } catch (error) {
                 console.error("Fetch failed:", error);
-                setProducts([]); // Fallback to empty array
+                setProducts([]); 
             } finally {
                 setLoading(false);
             }
@@ -75,23 +75,30 @@ export default function Trending() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                    {/* Extra safety layer: Optional chaining with Array.isArray */}
                     {Array.isArray(products) && products.map((product) => {
                         const isFavorited = favoriteItems.some(item => item._id === product._id);
                         const isInCart = cartItems.some(item => item._id === product._id);
+
+                        const isOutOfStock = (product.stock || 0) <= 0;
 
                         return (
                             <div key={product._id} className="group flex flex-col relative">
                                 <div className="relative aspect-[4/5] bg-slate-50 rounded-2xl overflow-hidden mb-5 border border-slate-100">
                                     <div className="absolute top-3 left-3 z-20">
-                                        {product.isTrending && (
-                                            <span className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-sm">
-                                                Hot
-                                            </span>
-                                        )}
+                                        <div className="absolute top-4 left-4 z-20">
+                                            {isOutOfStock ? (
+                                                <span className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md">
+                                                    Out of Stock
+                                                </span>
+                                            ) : product.isTrending && (
+                                                <span className="bg-[#ec1313] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md shadow-red-500/30">
+                                                    Hot
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.preventDefault();
                                             dispatch(toggleFavorite({
@@ -109,34 +116,47 @@ export default function Trending() {
                                     </button>
 
                                     <Link href={`/product/${product.slug}`} className="absolute inset-0 z-10 flex items-center justify-center p-8 cursor-pointer">
-                                        <Image 
-                                            src={product.images[0]} 
-                                            alt={product.name} 
-                                            fill 
-                                            className="object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6" 
+                                        <Image
+                                            src={product.images[0]}
+                                            alt={product.name}
+                                            fill
+                                            className={`object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6 ${isOutOfStock ? 'grayscale opacity-60' : ''}`}
                                         />
                                     </Link>
-                                    
+
                                     <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out z-20">
                                         {isInCart ? (
-                                            <button 
+                                            <button
                                                 onClick={() => router.push('/cart')}
                                                 className="w-full bg-green-500 text-white font-black uppercase tracking-widest text-xs py-4 flex justify-center items-center gap-2 hover:bg-green-600 transition-colors cursor-pointer"
                                             >
                                                 <FaCheck size={14} /> View in Cart
                                             </button>
                                         ) : (
-                                            <button 
+                                            <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
+
+                                                    if (isOutOfStock) {
+                                                        toast.error("This product is currently out of stock");
+                                                        return;
+                                                    }
+                                                    
                                                     dispatch(addToCart({
-                                                        _id: product._id, name: product.name, price: product.price, image: product.images[0] || "", slug: product.slug, quantity: 1
+                                                        _id: product._id,
+                                                        name: product.name,
+                                                        price: product.price,
+                                                        image: product.images[0] || "",
+                                                        slug: product.slug,
+                                                        quantity: 1,
+                                                        stock: product.stock
                                                     }));
                                                     toast.success(`${product.name} added!`);
                                                 }}
-                                                className="w-full bg-[#ec1313] text-white font-black uppercase tracking-widest text-xs py-4 flex justify-center items-center gap-2 hover:bg-[#c40f0f] transition-colors cursor-pointer"
+                                                disabled={isOutOfStock}
+                                                className="w-full bg-[#ec1313] text-white font-black uppercase tracking-widest text-xs py-4 flex justify-center items-center gap-2 hover:bg-[#c40f0f] transition-colors cursor-pointer disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
                                             >
-                                                <FaShoppingCart size={14} /> Quick Add
+                                                <FaShoppingCart size={14} /> {isOutOfStock ? "Out of Stock" : "Quick Add"}
                                             </button>
                                         )}
                                     </div>
