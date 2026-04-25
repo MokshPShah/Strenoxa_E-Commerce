@@ -23,10 +23,10 @@ export default function DashboardFavoritesPage() {
 
     const handleMoveToCart = (item: FavItem) => {
         // Defaulting to "Standard" flavor and 1 quantity.
-        dispatch(addToCart({ ...item, quantity: 1, flavor: "Standard" }));
-        
+        dispatch(addToCart({ ...item, quantity: 1, flavor: "Standard", stock: item.stock ?? 100 }));
+
         // Remove from favorites once it's successfully moved to the cart
-        dispatch(toggleFavorite(item)); 
+        dispatch(toggleFavorite(item));
         toast.success(`${item.name} moved to cart!`);
     };
 
@@ -48,7 +48,7 @@ export default function DashboardFavoritesPage() {
                     <p className="text-slate-500 font-medium mb-8 max-w-md">
                         You haven't saved any items to your favorites. Start exploring our premium supplements and build your perfect stack!
                     </p>
-                    <Link 
+                    <Link
                         href="/shop"
                         className="bg-[#ec1313] hover:bg-[#c40f0f] text-white px-8 py-4 rounded-xl font-bold tracking-wide transition-all shadow-lg shadow-red-500/20 active:scale-95 cursor-pointer"
                     >
@@ -59,11 +59,11 @@ export default function DashboardFavoritesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {favoriteItems.map((item) => (
                         <div key={item._id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden group flex flex-col">
-                            
+
                             {/* Product Image Area */}
                             <Link href={`/product/${item.slug}`} className="relative aspect-square bg-slate-50 p-6 flex items-center justify-center cursor-pointer overflow-hidden">
-                                <img 
-                                    src={item.image || "/placeholder.png"} 
+                                <img
+                                    src={item.image || "/placeholder.png"}
                                     alt={item.name}
                                     className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                                 />
@@ -78,7 +78,7 @@ export default function DashboardFavoritesPage() {
                                     <FaTrash size={14} />
                                 </button>
                             </Link>
-                            
+
                             {/* Product Details */}
                             <div className="p-6 flex flex-col flex-grow">
                                 <Link href={`/product/${item.slug}`} className="cursor-pointer">

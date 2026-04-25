@@ -6,6 +6,7 @@ export interface FavoriteItem {
   price: number
   image: string
   slug: string
+  stock?: number
 }
 
 interface FavoriteState {
