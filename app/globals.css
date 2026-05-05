@@ -65,6 +65,18 @@
 .animate-fade-in-up {
     animation: fadeInUp 0.4s ease-out forwards;
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
 @layer components {
     .btn-primary {
         @apply bg-[#ec1313] hover:bg-[#c40f0f] text-white font-bold py-3 px-8 rounded-md transition-all duration-300 shadow-md;

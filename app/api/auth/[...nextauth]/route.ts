@@ -80,11 +80,10 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt ({ token, user, account }) {
-      // If 'user' exists, it means this is the exact moment the user is logging in
+    async jwt ({ token, user, account, trigger, session }) {
+
       if (user) {
         if (account?.provider === 'google' || account?.provider === 'facebook') {
-           // Fetch the actual MongoDB user to get the real _id instead of the Google/FB ID
            await connectDB();
            const dbUser = await User.findOne({ email: user.email });
            if (dbUser) {
@@ -92,10 +91,13 @@ export const authOptions: NextAuthOptions = {
              token.role = dbUser.role || 'user';
            }
         } else {
-           // For Credentials, user.id is already the MongoDB _id from the authorize function
            token.id = user.id;
            token.role = (user as any).role || 'user';
         }
+      }
+
+      if(trigger === "update" && session?.name){
+        token.name = session.name;
       }
       return token
     },
@@ -103,6 +105,10 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         ;(session.user as any).id = token.id
         ;(session.user as any).role = token.role || 'user'
+
+        if(token.name){
+          session.user.name = token.name as string
+        }
       }
       return session
     }
