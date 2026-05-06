@@ -39,11 +39,32 @@ const OrderSchema = new Schema(
       default: 'Processing',
       enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']
     },
+    paymentMethod: {
+      type: String,
+      required: true,
+      enum: ['razorpay', 'cod'],
+      default: 'cod'
+    },
+    paymentStatus: {
+      type: String,
+      default: 'Pending',
+      enum: ['Pending', 'Paid', 'Failed']
+    },
+    razorpayPaymentId: {
+      type: String
+    },
+    razorpayOrderId: {
+      type: String
+    },
+    razorpaySignature: {
+      type: String
+    },
     shippingAddress: {
+      title: String,
       street: String,
       city: String,
       state: String,
-      zipcode: String,
+      zip: String,
       country: String
     }
   },

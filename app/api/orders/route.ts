@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       !shippingAddress.street ||
       !shippingAddress.city ||
       !shippingAddress.state ||
-      !shippingAddress.zipcode ||
+      !shippingAddress.zip ||
       !shippingAddress.country
     ) {
       return NextResponse.json(

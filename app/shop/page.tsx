@@ -11,7 +11,6 @@ import { FaHeart, FaShoppingCart, FaCheck, FaFilter, FaTimes } from "react-icons
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// 1. FIX: Added `stock: number` to the interface
 interface Product {
     _id: string;
     name: string;
@@ -20,40 +19,48 @@ interface Product {
     category: string;
     images: string[];
     isTrending: boolean;
-    stock: number; // <--- ADDED
+    stock: number;
 }
 
 function ShopContent() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortBy, setSortBy] = useState<string>("featured");
-    
+
     const dispatch = useDispatch();
     const router = useRouter();
     const searchParams = useSearchParams();
-    
+
     const categoryQuery = searchParams.get("category");
     const searchQuery = searchParams.get("q");
-    
+
     const [activeCategory, setActiveCategory] = useState<string>(categoryQuery || "all");
-    
+
     const favoriteItems = useSelector((state: RootState) => state.favorites.items);
     const cartItems = useSelector((state: RootState) => state.cart.items);
 
     useEffect(() => {
         const fetchAllProducts = async () => {
             try {
-                const res = await fetch('/api/products');
+                const res = await fetch(`/api/products?q=${searchQuery}`);
                 const data = await res.json();
-                setProducts(data);
+
+                if (data && Array.isArray(data.products)) {
+                    setProducts(data.products);
+                } else if (Array.isArray(data)) {
+                    setProducts(data);
+                } else {
+                    setProducts([]);
+                }
             } catch (error) {
                 console.error(error);
+                setProducts([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchAllProducts();
-    }, []);
+    }, [searchQuery]); // Added searchQuery to dependency array so it refetches when search changes
 
     useEffect(() => {
         if (categoryQuery) {
@@ -88,12 +95,10 @@ function ShopContent() {
     const filteredAndSortedProducts = useMemo(() => {
         let result = [...products];
 
+        // We ONLY filter by category here. 
+        // The backend already handled the fuzzy search, so we don't double-filter the names!
         if (activeCategory !== "all") {
             result = result.filter(p => p.category.toLowerCase() === activeCategory.toLowerCase());
-        }
-
-        if (searchQuery) {
-            result = result.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
         }
 
         switch (sortBy) {
@@ -113,7 +118,7 @@ function ShopContent() {
         }
 
         return result;
-    }, [products, activeCategory, sortBy, searchQuery]);
+    }, [products, activeCategory, sortBy]);
 
     if (loading) {
         return (
@@ -128,7 +133,7 @@ function ShopContent() {
     return (
         <div className="min-h-screen bg-[#f8f9fa] pt-40 lg:pt-48 pb-24">
             <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-                
+
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-slate-200 pb-8">
                     <div>
                         <h1 className="text-4xl md:text-6xl font-black text-slate-950 uppercase tracking-tighter mb-4">
@@ -139,7 +144,7 @@ function ShopContent() {
                                 <p className="text-slate-500 font-medium text-lg">
                                     Showing results for <span className="text-slate-900 font-bold">"{searchQuery}"</span>
                                 </p>
-                                <button 
+                                <button
                                     onClick={clearSearch}
                                     className="flex items-center gap-1 text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
                                 >
@@ -156,7 +161,7 @@ function ShopContent() {
                         <div className="pl-4 text-slate-400">
                             <FaFilter size={14} />
                         </div>
-                        <select 
+                        <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
                             className="bg-transparent border-none text-sm font-bold text-slate-700 py-2 pr-4 focus:outline-none focus:ring-0 cursor-pointer appearance-none"
@@ -174,11 +179,10 @@ function ShopContent() {
                         <button
                             key={cat}
                             onClick={() => handleCategoryChange(cat)}
-                            className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all cursor-pointer ${
-                                activeCategory.toLowerCase() === cat.toLowerCase() 
-                                    ? "bg-slate-950 text-white shadow-lg shadow-slate-900/20" 
-                                    : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
-                            }`}
+                            className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all cursor-pointer ${activeCategory.toLowerCase() === cat.toLowerCase()
+                                ? "bg-slate-950 text-white shadow-lg shadow-slate-900/20"
+                                : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
+                                }`}
                         >
                             {cat.replace("-", " ")}
                         </button>
@@ -189,7 +193,7 @@ function ShopContent() {
                     <div className="text-center py-24 bg-white rounded-3xl border border-slate-100">
                         <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">No products found</h2>
                         <p className="text-slate-500">Try adjusting your filters or search terms.</p>
-                        <button 
+                        <button
                             onClick={() => {
                                 handleCategoryChange("all");
                                 if (searchQuery) clearSearch();
@@ -204,8 +208,6 @@ function ShopContent() {
                         {filteredAndSortedProducts.map((product) => {
                             const isFavorited = favoriteItems.some(item => item._id === product._id);
                             const isInCart = cartItems.some(item => item._id === product._id);
-                            
-                            // 2. NEW: Protect quick add if out of stock
                             const isOutOfStock = product.stock <= 0;
 
                             return (
@@ -224,7 +226,7 @@ function ShopContent() {
                                             )}
                                         </div>
 
-                                        <button 
+                                        <button
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 dispatch(toggleFavorite({
@@ -242,11 +244,11 @@ function ShopContent() {
                                         </button>
 
                                         <Link href={`/product/${product.slug}`} className="absolute inset-0 z-10 flex items-center justify-center p-8 cursor-pointer">
-                                            <Image 
-                                                src={product.images[0]} 
-                                                alt={product.name} 
-                                                fill 
-                                                className={`object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6 ${isOutOfStock ? 'grayscale' : ''}`} 
+                                            <Image
+                                                src={product.images[0]}
+                                                alt={product.name}
+                                                fill
+                                                className={`object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-700 ease-out p-6 ${isOutOfStock ? 'grayscale' : ''}`}
                                             />
                                         </Link>
                                     </div>
@@ -264,9 +266,9 @@ function ShopContent() {
                                             <p className="text-slate-900 font-black text-xl">
                                                 ${product.price.toFixed(2)}
                                             </p>
-                                            
+
                                             {isInCart ? (
-                                                <button 
+                                                <button
                                                     onClick={(e) => { e.preventDefault(); router.push('/cart'); }}
                                                     className="w-12 h-12 bg-green-500 text-white rounded-xl flex justify-center items-center hover:bg-green-600 transition-colors cursor-pointer shadow-md shadow-green-500/20"
                                                     title="View in Cart"
@@ -274,21 +276,20 @@ function ShopContent() {
                                                     <FaCheck size={16} />
                                                 </button>
                                             ) : (
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.preventDefault();
-                                                        if(isOutOfStock) {
+                                                        if (isOutOfStock) {
                                                             toast.error("This product is currently out of stock");
                                                             return;
                                                         }
-                                                        
-                                                        // 3. FIX: Send the stock property when adding!
+
                                                         dispatch(addToCart({
-                                                            _id: product._id, 
-                                                            name: product.name, 
-                                                            price: product.price, 
-                                                            image: product.images[0] || "", 
-                                                            slug: product.slug, 
+                                                            _id: product._id,
+                                                            name: product.name,
+                                                            price: product.price,
+                                                            image: product.images[0] || "",
+                                                            slug: product.slug,
                                                             quantity: 1,
                                                             stock: product.stock
                                                         }));

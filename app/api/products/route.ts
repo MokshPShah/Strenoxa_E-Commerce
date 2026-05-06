@@ -9,29 +9,61 @@ export async function GET(req: Request) {
     await connectDB()
 
     const { searchParams } = new URL(req.url)
+    const searchQuery = searchParams.get('q')
     const category = searchParams.get('category')
     const trending = searchParams.get('trending')
 
-    let query: any = {}
+    let products;
 
-    if (category) {
-      query.category = category
+    if (searchQuery && searchQuery !== 'null' && searchQuery.trim() !== '') {
+      const aggerationPipeline: any[] = [
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: searchQuery,
+              path: ["name", "description", "category"],
+              fuzzy: {
+                maxEdits: 2,
+                prefixLength: 0
+              }
+            }
+          }
+        }
+      ]
+      const matchFilters: any = {}
+      if (category) {
+        matchFilters.category = category
+      }
+      if (trending === 'true') {
+        matchFilters.isTrending = true
+      }
+      if (Object.keys(matchFilters).length > 0) {
+        aggerationPipeline.push({ $match: matchFilters })
+      }
+
+      aggerationPipeline.push({ $sort: { createdAt: -1 } });
+
+      products = await Product.aggregate(aggerationPipeline)
+    } else {
+      let query: any = {}
+      if (category) {
+        query.category = category
+      }
+      if (trending === 'true') {
+        query.isTrending = true
+      }
+      products = await Product.find(query).sort({ createdAt: -1 }).lean()
     }
-    if (trending === 'true') {
-      query.isTrending = true
-    }
 
-    const products = await Product.find(query).sort({ createdAt: -1 }).lean()
-
-    // 🚨 THE FIX: Force 'undefined' stock from old MongoDB documents to safely evaluate to 0
     const normalizedProducts = products.map((p: any) => ({
       ...p,
-      stock: p.stock ?? 0 
+      stock: p.stock ?? 0
     }));
 
     console.log(`[API] Fetched ${normalizedProducts.length} products from DB.`);
 
-    return NextResponse.json(normalizedProducts, { status: 200 })
+    return NextResponse.json({ products: normalizedProducts }, { status: 200 })
   } catch (error) {
     console.error('Products API Error:', error)
     return NextResponse.json(
@@ -47,7 +79,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const newProduct = await Product.create(body);
-    
+
     console.log(`[DATABASE] Added new product: ${newProduct.name}`);
     return NextResponse.json(newProduct, { status: 201 });
 

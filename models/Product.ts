@@ -131,4 +131,4 @@ const ProductSchema = new Schema<IProduct>({
 ProductSchema.index({deletedAt: 1}, {expireAfterSeconds: 2592000})
 
 export default mongoose.models.Product ||
-  mongoose.model<IProduct>('Product', ProductSchema)
+  mongoose.model<IProduct>('Product', ProductSchema, 'products')

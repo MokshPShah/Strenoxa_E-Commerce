@@ -1,210 +1,232 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "@/store/store";
-import { clearCart } from "@/store/cartSlice";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import toast from "react-hot-toast";
-import { FaLock, FaTruck, FaArrowLeft } from "react-icons/fa";
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+// Note: Adjust these Redux imports to match your actual store setup
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store/store';
+import { clearCart } from '@/store/cartSlice';
+
+import { FaSpinner, FaMapMarkerAlt, FaCreditCard, FaLock, FaCheckCircle } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 export default function CheckoutPage() {
-    const rawCartItems = useSelector((state: RootState) => state.cart.items);
-    const cartItems = rawCartItems.filter(item => (item.stock || 0) > 0);
-    const dispatch = useDispatch();
     const router = useRouter();
-    const { data: session } = useSession();
+    const dispatch = useDispatch();
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    // 1. Pull Cart Data from Redux
+    const cartItems = useSelector((state: RootState) => state.cart.items);
 
-    // Updated state to perfectly match your Mongoose Order model
-    const [formData, setFormData] = useState({
-        fullName: session?.user?.name || "",
-        email: session?.user?.email || "",
-        phone: "", // Optional, not in your DB model but good to collect
-        street: "",
-        city: "",
-        state: "",
-        zipcode: "",
-        country: "USA", // Default value, can be changed by user
-    });
+    // 2. Local State
+    const [addresses, setAddresses] = useState<any[]>([]);
+    const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState('credit_card');
+    const [loading, setLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    // Send them back to shop if cart is empty
+    // 3. Calculate Totals
+    const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const shipping = subtotal > 100 ? 0 : 10; // Free shipping over $100
+    const tax = subtotal * 0.08; // 8% dummy tax
+    const total = subtotal + shipping + tax;
+
     useEffect(() => {
-        if (cartItems.length === 0 && !isSubmitting) {
-            router.push("/cart");
+        // If cart is empty, kick them back to shop
+        if (cartItems.length === 0) {
+            router.push('/shop');
+            return;
         }
-    }, [cartItems, router, isSubmitting]);
+        fetchAddresses();
+    }, [cartItems]);
 
-    const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-    const shippingFee = subtotal > 100 ? 0 : 10;
-    const totalAmount = subtotal + shippingFee;
+    const fetchAddresses = async () => {
+        try {
+            const res = await fetch('/api/user/addresses');
+            const data = await res.json();
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+            const userAddresses = data.addresses || [];
+            setAddresses(userAddresses);
+
+            // AUTO-SELECT the default address!
+            const defaultAddr = userAddresses.find((addr: any) => addr.isDefault);
+            if (defaultAddr) {
+                setSelectedAddressId(defaultAddr._id);
+            } else if (userAddresses.length > 0) {
+                setSelectedAddressId(userAddresses[0]._id);
+            }
+        } catch (error) {
+            toast.error("Failed to load addresses");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handlePlaceOrder = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
+    const handlePlaceOrder = async () => {
+        if (!selectedAddressId) {
+            return toast.error("Please select a shipping address");
+        }
 
-        // Note: Your backend route actually ignores the orderItems we send from the frontend 
-        // and securely recalculates everything from the user.cart in the database! 
-        // This is excellent for security. We just need to send the shippingAddress.
+        setIsProcessing(true);
+
+        // Find the full address object to save with the order
+        const shippingAddress = addresses.find(a => a._id === selectedAddressId);
 
         try {
-            const res = await fetch("/api/orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // Perfectly matching your backend requirements
-                    shippingAddress: {
-                        street: formData.street,
-                        city: formData.city,
-                        state: formData.state,
-                        zipcode: formData.zipcode,
-                        country: formData.country,
-                    }
+                    items: cartItems,
+                    shippingAddress,
+                    paymentMethod,
+                    subtotal,
+                    tax,
+                    shippingFee: shipping,
+                    totalAmount: total
                 }),
             });
 
+            if (!res.ok) throw new Error("Checkout failed");
+
             const data = await res.json();
 
-            if (res.ok) {
-                toast.success("Order placed successfully!");
+            toast.success("Order placed successfully!");
+            dispatch(clearCart()); // Empty the Redux cart
+            router.push(`/dashboard/orders?success=true&id=${data.orderId}`); // Send them to their order history
 
-                window.location.href = `/checkout/success?orderId=${data.orderId || data._id}`;
-
-                setTimeout(() => {
-                    dispatch(clearCart());
-                }, 100);
-            } else {
-                toast.error(data.message || "Failed to place order.");
-                setIsSubmitting(false);
-            }
         } catch (error) {
-            console.error("Checkout Error:", error);
-            toast.error("Something went wrong. Please try again.");
-            setIsSubmitting(false);
+            toast.error("Failed to process order. Please try again.");
+            setIsProcessing(false);
         }
     };
 
-    if (cartItems.length === 0) return null;
+    if (loading) return <div className="min-h-screen flex items-center justify-center"><FaSpinner className="animate-spin text-4xl text-[#ec1313]" /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pt-24 pb-24">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-[#f8f9fa] pt-24 md:pt-32 pb-24 font-sans text-slate-800">
+            <div className="max-w-[1200px] mx-auto px-4 md:px-8">
 
-                <div className="flex items-center gap-4 mb-8">
-                    <Link href="/cart" className="p-3 bg-white border border-gray-200 rounded-full text-gray-500 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer">
-                        <FaArrowLeft size={16} />
-                    </Link>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase italic">Secure Checkout</h1>
-                </div>
+                <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter mb-8">Secure Checkout</h1>
 
-                <div className="flex flex-col lg:flex-row gap-10">
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
 
-                    {/* Shipping Form */}
-                    <div className="lg:w-2/3">
-                        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
-                                <FaTruck className="text-[#ec1313] text-xl" />
-                                <h2 className="text-xl font-bold text-gray-900">Shipping Details</h2>
-                            </div>
+                    {/* LEFT COLUMN: Shipping & Payment */}
+                    <div className="flex-1 space-y-8">
 
-                            <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Full Name</label>
-                                        <input required type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Email Address</label>
-                                        <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Phone Number</label>
-                                        <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
+                        {/* Shipping Address Section */}
+                        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
+                            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                                <FaMapMarkerAlt className="text-[#ec1313]" /> 1. Shipping Address
+                            </h2>
 
-                                    {/* Manual Address Fields perfectly matching DB Schema */}
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Street Address</label>
-                                        <input required type="text" name="street" value={formData.street} onChange={handleInputChange} placeholder="123 Main St, Apt 4B" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">City</label>
-                                        <input required type="text" name="city" value={formData.city} onChange={handleInputChange} placeholder="New York" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">State / Province</label>
-                                        <input required type="text" name="state" value={formData.state} onChange={handleInputChange} placeholder="NY" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">ZIP / Postal Code</label>
-                                        <input required type="text" name="zipcode" value={formData.zipcode} onChange={handleInputChange} placeholder="10001" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Country</label>
-                                        <select required name="country" value={formData.country} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-[#ec1313] focus:ring-1 focus:ring-[#ec1313] transition-all cursor-pointer">
-                                            <option value="USA">United States</option>
-                                            <option value="CAN">Canada</option>
-                                            <option value="GBR">United Kingdom</option>
-                                            <option value="AUS">Australia</option>
-                                            <option value="IND">India</option>
-                                        </select>
-                                    </div>
+                            {addresses.length === 0 ? (
+                                <div className="text-center py-6 bg-slate-50 rounded-2xl">
+                                    <p className="text-sm text-slate-500 font-medium mb-4">You don't have any saved addresses.</p>
+                                    <button onClick={() => router.push('/dashboard/addresses')} className="text-xs font-black uppercase tracking-widest text-[#ec1313] hover:underline">
+                                        + Add New Address
+                                    </button>
                                 </div>
-                            </form>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {addresses.map((addr) => (
+                                        <div
+                                            key={addr._id}
+                                            onClick={() => setSelectedAddressId(addr._id)}
+                                            className={`cursor-pointer p-5 rounded-2xl border-2 transition-all relative ${selectedAddressId === addr._id ? 'border-[#ec1313] bg-red-50/10 shadow-sm' : 'border-slate-100 hover:border-slate-300 bg-white'
+                                                }`}
+                                        >
+                                            {selectedAddressId === addr._id && (
+                                                <FaCheckCircle className="absolute top-5 right-5 text-[#ec1313] text-lg" />
+                                            )}
+                                            <h3 className="font-black text-sm uppercase tracking-tight mb-2 pr-8">{addr.title}</h3>
+                                            <p className="text-xs text-slate-600 font-medium">{addr.street}</p>
+                                            <p className="text-xs text-slate-600 font-medium">{addr.city}, {addr.state} {addr.zip}</p>
+                                            <p className="text-xs font-bold text-slate-900 mt-1">{addr.country}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
+
+                        {/* Payment Method Section */}
+                        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
+                            <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                                <FaCreditCard className="text-[#ec1313]" /> 2. Payment Method
+                            </h2>
+
+                            <div className="space-y-3">
+                                <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_card' ? 'border-[#ec1313] bg-red-50/10' : 'border-slate-100 hover:border-slate-200'}`}>
+                                    <input type="radio" name="payment" value="credit_card" checked={paymentMethod === 'credit_card'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-5 h-5 accent-[#ec1313]" />
+                                    <div>
+                                        <p className="font-black text-sm uppercase tracking-tight">Credit / Debit Card</p>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Secure payment via Stripe</p>
+                                    </div>
+                                </label>
+
+                                <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-[#ec1313] bg-red-50/10' : 'border-slate-100 hover:border-slate-200'}`}>
+                                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-5 h-5 accent-[#ec1313]" />
+                                    <div>
+                                        <p className="font-black text-sm uppercase tracking-tight">Cash on Delivery</p>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Pay when you receive your gear</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                     </div>
 
-                    {/* Order Summary Column */}
-                    <div className="lg:w-1/3">
-                        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm sticky top-28">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6">Order Summary</h2>
+                    {/* RIGHT COLUMN: Order Summary (Sticky) */}
+                    <div className="w-full lg:w-[400px] flex-shrink-0">
+                        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 lg:sticky lg:top-32">
+                            <h2 className="text-xl font-black uppercase tracking-tight mb-6">Order Summary</h2>
 
-                            <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2">
-                                {cartItems.map((item) => (
-                                    <div key={`${item._id}-${item.flavor}`} className="flex items-center gap-4">
-                                        <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0">
-                                            <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                            {/* Items List */}
+                            <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 hide-scrollbar">
+                                {cartItems.map((item, idx) => (
+                                    <div key={idx} className="flex gap-4">
+                                        <div className="w-16 h-16 bg-slate-50 rounded-xl p-2 border border-slate-100 flex-shrink-0">
+                                            <img src={item.image || "/placeholder.png"} alt={item.name} className="w-full h-full object-contain" />
                                         </div>
-                                        <div className="flex-grow">
-                                            <h4 className="text-sm font-bold text-gray-900 line-clamp-1">{item.name}</h4>
-                                            <p className="text-xs text-gray-500">{item.flavor} x {item.quantity}</p>
+                                        <div className="flex-1">
+                                            <h4 className="font-black text-xs uppercase tracking-tight line-clamp-2">{item.name}</h4>
+                                            <p className="text-[10px] text-slate-500 font-bold mt-1">QTY: {item.quantity}</p>
                                         </div>
-                                        <div className="text-sm font-bold text-gray-900">
+                                        <div className="font-black text-sm">
                                             ${(item.price * item.quantity).toFixed(2)}
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="border-t border-gray-100 pt-6 space-y-4 mb-8">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500 font-medium">Subtotal</span>
-                                    <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+                            {/* Cost Breakdown */}
+                            <div className="space-y-3 border-t border-slate-100 pt-6 mb-6">
+                                <div className="flex justify-between text-sm font-medium text-slate-600">
+                                    <span>Subtotal</span>
+                                    <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500 font-medium">Shipping</span>
-                                    <span className="font-bold text-gray-900">{shippingFee === 0 ? "Free" : `$${shippingFee.toFixed(2)}`}</span>
+                                <div className="flex justify-between text-sm font-medium text-slate-600">
+                                    <span>Shipping</span>
+                                    <span className="font-bold text-slate-900">{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
                                 </div>
-                                <div className="flex justify-between text-lg pt-4 border-t border-gray-100">
-                                    <span className="font-black text-gray-900 uppercase">Total</span>
-                                    <span className="font-black text-[#ec1313]">${totalAmount.toFixed(2)}</span>
+                                <div className="flex justify-between text-sm font-medium text-slate-600">
+                                    <span>Estimated Tax</span>
+                                    <span className="font-bold text-slate-900">${tax.toFixed(2)}</span>
                                 </div>
                             </div>
 
+                            {/* Total */}
+                            <div className="flex justify-between items-center border-t border-slate-100 pt-6 mb-8">
+                                <span className="text-lg font-black uppercase tracking-tight">Total</span>
+                                <span className="text-2xl font-black text-[#ec1313]">${total.toFixed(2)}</span>
+                            </div>
+
                             <button
-                                form="checkout-form"
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full bg-[#ec1313] hover:bg-[#c40f0f] disabled:bg-gray-400 text-white py-4 rounded-xl font-bold tracking-wide text-lg transition-all shadow-xl shadow-red-500/20 active:scale-[0.98] flex justify-center items-center gap-2 cursor-pointer"
+                                onClick={handlePlaceOrder}
+                                disabled={isProcessing || !selectedAddressId}
+                                className="w-full bg-slate-950 hover:bg-black text-white py-4 rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {isSubmitting ? "Processing..." : <><FaLock size={14} /> Place COD Order</>}
+                                {isProcessing ? <FaSpinner className="animate-spin" /> : <FaLock />}
+                                {isProcessing ? "Processing..." : "Place Order"}
                             </button>
                         </div>
                     </div>

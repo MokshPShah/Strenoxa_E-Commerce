@@ -37,15 +37,19 @@ export default function Trending() {
                 const res = await fetch('/api/products?trending=true');
                 const data = await res.json();
 
-                if (Array.isArray(data)) {
+                // ✅ THE FIX: Correctly check for and extract data.products
+                if (data && Array.isArray(data.products)) {
+                    setProducts(data.products);
+                } else if (Array.isArray(data)) {
+                    // Fallback just in case
                     setProducts(data);
                 } else {
                     console.error("API Error or Invalid Data:", data);
-                    setProducts([]); 
+                    setProducts([]);
                 }
             } catch (error) {
                 console.error("Fetch failed:", error);
-                setProducts([]); 
+                setProducts([]);
             } finally {
                 setLoading(false);
             }
@@ -141,7 +145,7 @@ export default function Trending() {
                                                         toast.error("This product is currently out of stock");
                                                         return;
                                                     }
-                                                    
+
                                                     dispatch(addToCart({
                                                         _id: product._id,
                                                         name: product.name,
