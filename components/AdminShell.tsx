@@ -118,6 +118,9 @@ export default function AdminShell({ userRole, userName, children }: AdminShellP
                             <Link href="/admin/settings" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/settings")}>
                                 <FaCog /> Site Settings
                             </Link>
+                            <Link href="/admin/coupons" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/coupons")}>
+                                <FaChartBar /> Coupons
+                            </Link>
                         </>
                     ) : (
                         <>
@@ -131,11 +134,8 @@ export default function AdminShell({ userRole, userName, children }: AdminShellP
                             <Link href="/admin/inventory/bin" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/inventory/bin")}>
                                 <FaTrashRestore /> Recycle Bin
                             </Link>
-                            <Link href="/admin/tickets" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/tickets")}>
-                                <FaTicketAlt /> Support Tickets
-                            </Link>
-                            <Link href="/admin/brands" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/brands")}>
-                                <FaChartBar /> Brand Sales
+                            <Link href="/admin/coupons" onClick={() => setIsMobileMenuOpen(false)} className={getLinkClasses("/admin/brands")}>
+                                <FaChartBar /> Coupons
                             </Link>
 
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-6 mb-2 px-4">System</span>

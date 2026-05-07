@@ -6,17 +6,26 @@ import User from '@/models/User'
 import Order from '@/models/Order'
 import Product from '@/models/Product'
 import ActivityLog from '@/models/ActivityLog'
+import crypto from 'crypto'
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json(
-        { message: 'You must br logged in to checkout' },
+        { message: 'You must be logged in to checkout' },
         { status: 401 }
       )
     }
-    const { shippingAddress } = await req.json()
+
+    // Razorpay fields and payment method from the request body
+    const {
+      shippingAddress,
+      paymentMethod,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    } = await req.json()
 
     // 1. Strict Address Validation
     if (
@@ -84,13 +93,42 @@ export async function POST(req: Request) {
     const shippingFee = subTotal > 100 ? 0 : 10;
     const finalTotalAmount = subTotal + shippingFee;
 
+    // If Razorpay is the chosen payment method, verify the payment details
+    let finalPaymentStatus = 'Pending'
+
+    if (paymentMethod === 'razorpay') {
+      const secret = process.env.RAZORPAY_KEY_SECRET
+      if (!secret || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        console.error("CRITICAL: something is missing for the payment.");
+        return NextResponse.json({ message: "Server configuration error. Please contact support." }, { status: 500 })
+      }
+
+      // cryptographically verify the Razorpay payment details to prevent tampering
+      const generatedSignature = crypto
+        .createHmac("sha256", secret)
+        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+        .digest("hex");
+
+      if(generatedSignature !== razorpaySignature){
+        console.warn(`Payment verification failed for user ${user.email}. Possible tampering detected.`)
+        return NextResponse.json({message: "Payment verification failed. Please try again or contact support."}, {status: 400})
+      }
+
+      finalPaymentStatus = 'Paid'
+    }
+
     // 4. Create the Order
     const newOrder = await Order.create({
       user: user._id,
       items: orderItems,
       totalAmount: parseFloat(finalTotalAmount.toFixed(2)),
       status: 'Processing',
-      shippingAddress
+      shippingAddress,
+      paymentMethod: paymentMethod || 'cod',
+      paymentStatus: paymentMethod === 'cod' ? 'Pending' : finalPaymentStatus,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
     })
 
     // 5. Deduct Inventory Stock

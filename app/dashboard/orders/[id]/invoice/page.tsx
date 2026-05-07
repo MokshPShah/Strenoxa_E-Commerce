@@ -5,9 +5,9 @@ import Link from "next/link";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Order from "@/models/Order";
-import Product from "@/models/Product";
 import UserDashboardShell from "@/components/UserDashboardShell";
-import { FaArrowLeft, FaBox, FaTruck, FaMapMarkerAlt, FaCreditCard } from "react-icons/fa";
+import DownloadInvoiceButton from "@/components/DownloadInvoiceButton";
+import { FaArrowLeft, FaBox, FaTruck, FaMapMarkerAlt, FaCreditCard, FaCheckCircle } from "react-icons/fa";
 
 type Props = {
     params: Promise<{ id: string }>;
@@ -29,10 +29,8 @@ interface OrderItem {
 }
 
 export default async function OrderDetailsPage({ params }: Props) {
-    // 1. Strictly await the dynamic params
     const { id } = await params;
 
-    // 2. Authenticate and retrieve session
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
         redirect("/login");
@@ -40,16 +38,13 @@ export default async function OrderDetailsPage({ params }: Props) {
 
     await connectDB();
 
-    // 3. Securely fetch the user by email to guarantee the correct Mongoose ObjectId
     const dbUser = await User.findOne({ email: session.user.email }).select("_id")
     if (!dbUser) {
         redirect("/login");
     }
 
-    // 4. fetch the specific order.
-    // Security: We query by BOTH _id AND user._id to prevent users from accessing other people's orders via URL manipulation.
     const order = await Order.findOne({ _id: id, user: dbUser._id })
-        .populate("items.productId", "image images") // Grab images from the Product model
+        .populate("items.productId", "image images")
         .lean();
 
     if (!order) {
@@ -60,53 +55,61 @@ export default async function OrderDetailsPage({ params }: Props) {
                     <h2 className="text-2xl font-black text-slate-900 mb-2">Order Not Found</h2>
                     <p className="text-slate-500 font-medium mb-6">This order does not exist or you do not have permission to view it.</p>
                     <Link href="/dashboard/orders" className="text-sm font-bold text-white bg-slate-900 px-6 py-3 rounded-xl hover:bg-black transition-colors cursor-pointer">
-                        Return to Order History
+                        <span className="cursor-pointer">Return to Order History</span>
                     </Link>
                 </div>
             </UserDashboardShell>
         )
     }
 
+    // Sanitize the Mongoose object for the Client Component
+    const serializedOrder = JSON.parse(JSON.stringify(order));
+
     const orderTotal = parseFloat(order.totalAmount);
     const shippingFee = orderTotal > 100 ? 0 : 10;
-    const subTotal = orderTotal - shippingFee
+    const subTotal = orderTotal - shippingFee;
+
+    // Calculate Total Quantity
+    const totalQuantity = (order.items as OrderItem[]).reduce((acc, item) => acc + item.quantity, 0);
 
     const getStatusStyle = (status: string) => {
         switch (status) {
-            case 'Processing':
-                return 'bg-blue-50 text-blue-600';
-            case 'Shipped':
-                return 'bg-purple-50 text-purple-600';
-            case 'Delivered':
-                return 'bg-green-50 text-green-600';
-            case 'Cancelled':
-                return 'bg-red-50 text-red-600';
-            default:
-                return 'bg-slate-50 text-slate-600'
+            case 'Processing': return 'bg-blue-50 text-blue-600';
+            case 'Shipped': return 'bg-purple-50 text-purple-600';
+            case 'Delivered': return 'bg-green-50 text-green-600';
+            case 'Cancelled': return 'bg-red-50 text-red-600';
+            default: return 'bg-slate-50 text-slate-600'
         }
     }
+
     return (
         <UserDashboardShell>
-
             {/* Header Navigation */}
-            <div className="flex items-center gap-4 mb-8">
-                <Link
-                    href="/dashboard/orders"
-                    className="p-3 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm"
-                >
-                    <FaArrowLeft size={16} />
-                </Link>
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">
-                        Order <span className="text-[#ec1313]">#{id.slice(-6).toUpperCase()}</span>
-                    </h1>
-                    <p className="text-slate-500 font-medium text-sm mt-1">
-                        Placed on {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
-                    </p>
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8">
+                <div className="flex items-center gap-4">
+                    <Link
+                        href="/dashboard/orders"
+                        className="p-3 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm"
+                    >
+                        <FaArrowLeft size={16} className="cursor-pointer" />
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">
+                            Order <span className="text-[#ec1313]">#{id.slice(-6).toUpperCase()}</span>
+                        </h1>
+                        <p className="text-slate-500 font-medium text-sm mt-1">
+                            Placed on {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
+                        </p>
+                    </div>
                 </div>
-                <span className={`ml-auto px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${getStatusStyle(order.status)}`}>
-                    {order.status}
-                </span>
+
+                <div className="flex items-center gap-3 md:ml-auto">
+                    <span className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest ${getStatusStyle(order.status)}`}>
+                        {order.status}
+                    </span>
+
+                    <DownloadInvoiceButton order={serializedOrder} userName={session.user.name || "Customer"} />
+                </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
@@ -114,14 +117,18 @@ export default async function OrderDetailsPage({ params }: Props) {
                 {/* Left Column: Items & Totals */}
                 <div className="lg:w-2/3 space-y-6">
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center gap-3">
-                            <FaBox className="text-[#ec1313]" />
-                            <h2 className="font-black text-slate-900 uppercase tracking-tight">Purchased Items</h2>
+                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <FaBox className="text-[#ec1313]" />
+                                <h2 className="font-black text-slate-900 uppercase tracking-tight">Purchased Items</h2>
+                            </div>
+                            <span className="bg-slate-50 text-slate-600 font-bold px-4 py-1.5 rounded-lg text-xs uppercase tracking-widest border border-slate-100">
+                                {totalQuantity} Total Items
+                            </span>
                         </div>
                         <div className="p-4 sm:p-8 space-y-6">
                             {(order.items as OrderItem[]).map((item) => {
                                 const productImg = item.productId?.image || item.productId?.images?.[0] || "/placeholder.png";
-
                                 return (
                                     <div key={item._id.toString()} className="flex items-center gap-4 sm:gap-6">
                                         <div className="w-20 h-20 bg-slate-50 rounded-xl p-2 border border-slate-100 flex-shrink-0">
@@ -173,23 +180,35 @@ export default async function OrderDetailsPage({ params }: Props) {
                         <address className="not-italic text-sm text-slate-600 font-medium space-y-1">
                             <p className="font-bold text-slate-900">{session.user.name}</p>
                             <p>{order.shippingAddress?.street}</p>
-                            <p>{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zipcode}</p>
+                            <p>{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip || order.shippingAddress?.zipcode}</p>
                             <p>{order.shippingAddress?.country}</p>
                         </address>
                     </div>
 
-                    {/* Payment Method */}
+                    {/* DYNAMIC Payment Method */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
                             <FaCreditCard className="text-slate-400" />
                             <h2 className="font-black text-slate-900 uppercase tracking-tight text-sm">Payment Method</h2>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
-                            <FaTruck className="text-2xl text-slate-300" />
-                            <div>
-                                <p className="font-bold text-slate-900">Cash On Delivery</p>
-                                <p className="text-xs text-slate-500 mt-1">Payment to be collected upon arrival.</p>
-                            </div>
+                            {order.paymentMethod === 'razorpay' ? (
+                                <>
+                                    <FaCheckCircle className="text-2xl text-green-500" />
+                                    <div>
+                                        <p className="font-bold text-slate-900">Paid via Razorpay</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">ID: {order.razorpayPaymentId}</p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <FaTruck className="text-2xl text-slate-300" />
+                                    <div>
+                                        <p className="font-bold text-slate-900">Cash On Delivery</p>
+                                        <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">To be collected upon arrival</p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
