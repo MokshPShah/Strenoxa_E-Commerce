@@ -25,8 +25,7 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
         const res = await signIn("credentials", {
-            redirect: true,
-            callbackUrl: '/',
+            redirect: false,
             email,
             password,
         });
@@ -39,6 +38,7 @@ export default function LoginPage() {
             await getSession();
             router.push("/");
             router.refresh();
+            window.location.reload();
         }
     };
 

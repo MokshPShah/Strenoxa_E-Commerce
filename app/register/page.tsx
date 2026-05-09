@@ -32,8 +32,7 @@ export default function RegisterPage() {
                 toast.success("Account created! Welcome to Strenoxa.");
                 // Automatically log them in after registration
                 const loginRes = await signIn("credentials", {
-                    redirect: true,
-                    callbackUrl: '/',
+                    redirect: false,
                     email,
                     password,
                 });
@@ -43,6 +42,7 @@ export default function RegisterPage() {
                 } else {
                     router.push("/");
                     router.refresh();
+                    window.location.reload();
                 }
             } else {
                 toast.error(data.message || "Registration failed");
