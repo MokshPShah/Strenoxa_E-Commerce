@@ -25,7 +25,8 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
         const res = await signIn("credentials", {
-            redirect: false,
+            redirect: true,
+            callbackUrl: '/',
             email,
             password,
         });

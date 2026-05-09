@@ -7,7 +7,7 @@ import { FaCreditCard, FaLock, FaPaypal } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import { addToCart, decreaseQuantity, removeFromCart, setCart } from "@/store/cartSlice";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { TbShoppingCartQuestion } from "react-icons/tb";
 import { useRouter } from "next/navigation";
@@ -16,19 +16,37 @@ export default function CartPage() {
     const dispatch = useDispatch();
     const router = useRouter();
     const cartItems = useSelector((state: RootState) => state.cart.items);
+
+    // --- NEW: Dynamic Settings State ---
+    const [storeSettings, setStoreSettings] = useState({
+        freeShippingThreshold: 100,
+        standardShippingFee: 10,
+        taxRate: 8
+    });
+
     const [promoCode, setPromoCode] = useState("");
     const [discount, setDiscount] = useState(0);
     const [appliedCode, setAppliedCode] = useState("");
 
-    // 1. BULLETPROOF FALLBACK: Use ?? to assume a safe stock level (like 100) if undefined on refresh
-    const validItems = cartItems.filter(item => (item.stock ?? 100) > 0);
+    // Fetch Global Settings on mount
+    useEffect(() => {
+        fetch("/api/settings")
+            .then(res => res.json())
+            .then(data => {
+                if (data) setStoreSettings(data);
+            })
+            .catch(err => console.error("Failed to load store settings", err));
+    }, []);
 
+    const validItems = cartItems.filter(item => (item.stock ?? 100) > 0);
     const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
-    // Calculate subtotal ONLY for valid, in-stock items
+    // --- NEW: DYNAMIC MATH ---
     const subtotal = validItems.reduce((total, item) => total + (item.price || 0) * item.quantity, 0);
-    const shipping = subtotal > 99.00 || subtotal === 0 ? 0 : 9.99;
-    const tax = subtotal * 0.08;
+    // Shipping uses dynamic threshold and fee
+    const shipping = subtotal >= storeSettings.freeShippingThreshold || subtotal === 0 ? 0 : storeSettings.standardShippingFee;
+    // Tax uses dynamic rate
+    const tax = subtotal * (storeSettings.taxRate / 100);
     const total = subtotal - discount + shipping + tax;
 
     const handleApplyCoupon = async () => {
@@ -44,7 +62,6 @@ export default function CartPage() {
             const data = await res.json();
 
             if (res.ok) {
-                // Calculate discount based on type
                 const calculatedDiscount = data.discountType === 'percentage'
                     ? (subtotal * data.discountValue) / 100
                     : data.discountValue;
@@ -70,7 +87,6 @@ export default function CartPage() {
             }
             dispatch(addToCart({ ...item, quantity: 1, stock: maxStock }));
 
-            // Re-validate coupon if subtotal increases (optional but good practice)
             if (appliedCode) {
                 toast("Cart updated. Please re-apply your coupon.", { icon: "⚠️" });
                 setAppliedCode("");
@@ -82,7 +98,6 @@ export default function CartPage() {
             if (item.quantity <= 1) return;
             dispatch(decreaseQuantity({ _id: item._id, flavor: item.flavor }));
 
-            // Re-validate coupon if subtotal drops
             if (appliedCode) {
                 toast("Cart updated. Please re-apply your coupon.", { icon: "⚠️" });
                 setAppliedCode("");
@@ -93,7 +108,6 @@ export default function CartPage() {
     };
 
     const handleProceedToCheckout = () => {
-        // Pass the applied code via URL parameters to the checkout page
         if (appliedCode) {
             router.push(`/checkout?coupon=${appliedCode}`);
         } else {
@@ -245,7 +259,6 @@ export default function CartPage() {
                                 <span className="text-slate-900 font-bold">${subtotal.toFixed(2)}</span>
                             </div>
 
-                            {/* --- THE MISSING UI BLOCK --- */}
                             {discount > 0 && (
                                 <div className="flex justify-between text-green-600">
                                     <span>Discount ({appliedCode})</span>
@@ -262,7 +275,7 @@ export default function CartPage() {
                                 )}
                             </div>
                             <div className="flex justify-between">
-                                <span>Tax estimate</span>
+                                <span>Tax estimate ({storeSettings.taxRate}%)</span>
                                 <span className="text-slate-900 font-bold">${tax.toFixed(2)}</span>
                             </div>
                         </div>
@@ -309,7 +322,6 @@ export default function CartPage() {
                             </div>
                         </div>
 
-                        {/* WARNING IF CART HAS INVALID ITEMS */}
                         {cartItems.length !== validItems.length && (
                             <div className="mb-6 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
                                 <FaExclamationTriangle className="text-[#ec1313] mt-0.5 flex-shrink-0" />

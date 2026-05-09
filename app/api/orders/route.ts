@@ -6,7 +6,10 @@ import User from '@/models/User'
 import Order from '@/models/Order'
 import Product from '@/models/Product'
 import ActivityLog from '@/models/ActivityLog'
+import Coupon from '@/models/Coupon' // Added for Promo Codes
+import Settings from '@/models/Settings' // Added for Global Math Rules
 import crypto from 'crypto'
+import { sendOrderConfirmationEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
@@ -18,13 +21,14 @@ export async function POST(req: Request) {
       )
     }
 
-    // Razorpay fields and payment method from the request body
+    // Extracted couponCode alongside the existing fields
     const {
       shippingAddress,
       paymentMethod,
       razorpayOrderId,
       razorpayPaymentId,
-      razorpaySignature
+      razorpaySignature,
+      couponCode // Pass this from your checkout frontend
     } = await req.json()
 
     // 1. Strict Address Validation
@@ -44,7 +48,14 @@ export async function POST(req: Request) {
 
     await connectDB()
 
-    // 2. Fetch the true cart directly from the database, ignoring frontend prices
+    // Fetch Global Site Settings (Fallback to defaults if somehow missing)
+    const settings = await Settings.findOne() || { 
+        freeShippingThreshold: 100, 
+        standardShippingFee: 10, 
+        taxRate: 8 
+    };
+
+    // 2. Fetch the true cart directly from the database
     const user = await User.findOne({ email: session.user.email }).populate(
       'cart.productId'
     )
@@ -90,8 +101,43 @@ export async function POST(req: Request) {
       subTotal += product.price * cartItem.quantity
     }
 
-    const shippingFee = subTotal > 100 ? 0 : 10;
-    const finalTotalAmount = subTotal + shippingFee;
+    // 4. Secure Server-Side Coupon Verification
+    let discountAmount = 0;
+    
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      
+      if (coupon) {
+        const now = new Date();
+        const expiryDate = new Date(coupon.expiryDate);
+        expiryDate.setUTCHours(23, 59, 59, 999);
+
+        // Verify Expiry, Min Amount, and New User Status on the server
+        let isEligible = true;
+        if (now > expiryDate) isEligible = false;
+        if (subTotal < coupon.minOrderAmount) isEligible = false;
+        
+        if (coupon.isNewUserOnly) {
+          const orderCount = await Order.countDocuments({ 
+             user: user._id, 
+             status: { $ne: 'Cancelled' } 
+          });
+          if (orderCount > 0) isEligible = false;
+        }
+
+        if (isEligible) {
+          discountAmount = coupon.discountType === 'percentage' 
+              ? (subTotal * coupon.discountValue) / 100 
+              : coupon.discountValue;
+        }
+      }
+    }
+
+    // 5. Apply Dynamic Math Rules
+    const shippingFee = subTotal > settings.freeShippingThreshold ? 0 : settings.standardShippingFee;
+    const discountedSubtotal = Math.max(0, subTotal - discountAmount); // Ensure it never drops below $0
+    const tax = discountedSubtotal * (settings.taxRate / 100);
+    const finalTotalAmount = discountedSubtotal + shippingFee + tax;
 
     // If Razorpay is the chosen payment method, verify the payment details
     let finalPaymentStatus = 'Pending'
@@ -103,7 +149,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Server configuration error. Please contact support." }, { status: 500 })
       }
 
-      // cryptographically verify the Razorpay payment details to prevent tampering
       const generatedSignature = crypto
         .createHmac("sha256", secret)
         .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -117,7 +162,7 @@ export async function POST(req: Request) {
       finalPaymentStatus = 'Paid'
     }
 
-    // 4. Create the Order
+    // 6. Create the Order
     const newOrder = await Order.create({
       user: user._id,
       items: orderItems,
@@ -128,28 +173,29 @@ export async function POST(req: Request) {
       paymentStatus: paymentMethod === 'cod' ? 'Pending' : finalPaymentStatus,
       razorpayOrderId,
       razorpayPaymentId,
-      razorpaySignature
+      razorpaySignature,
+      appliedCoupon: couponCode ? couponCode.toUpperCase() : null // Store the applied coupon code for reference
     })
 
-    // 5. Deduct Inventory Stock
+    // 7. Deduct Inventory Stock
     for (const item of orderItems) {
       await Product.findByIdAndUpdate(item.productId, {
         $inc: { stock: -item.quantity }
       })
     }
 
-    // 6. Securely Clear User Cart
+    // 8. Securely Clear User Cart
     user.cart = []
     await user.save()
 
-    // 7. Log the Activity for Super Admins
+    // 9. Log the Activity for Super Admins
     await ActivityLog.create({
       userEmail: user.email,
       action: 'New Order Placed',
       details: `Order #${newOrder._id
         .toString()
         .slice(-8)
-        .toUpperCase()} for $${subTotal.toFixed(2)}`
+        .toUpperCase()} for $${finalTotalAmount.toFixed(2)}`
     })
 
     return NextResponse.json(
