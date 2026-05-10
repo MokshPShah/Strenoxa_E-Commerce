@@ -34,6 +34,10 @@ const OrderSchema = new Schema(
       type: Number,
       required: true
     },
+    appliedCoupon: {type: Number, default: null},
+    discountAmount: {type: Number, default: null},
+    shippingFee: {type: Number, default: 0},
+    taxAmount: {type: Number, default: 0},
     status: {
       type: String,
       default: 'Processing',

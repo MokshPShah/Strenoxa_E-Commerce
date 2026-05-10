@@ -90,7 +90,7 @@ export default function DashboardOrdersPage() {
                                 {order.items?.map((item: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-4">
                                         <div className="w-16 h-16 bg-slate-50 rounded-xl p-2 border border-slate-100 flex-shrink-0">
-                                            <img src={item.image || "/placeholder.png"} alt={item.name} className="w-full h-full object-contain" />
+                                            <img src={item.productId?.image || item.productId?.images?.[0] || "/placeholder.png"} alt={item.name} className="w-full h-full object-contain" />
                                         </div>
                                         <div>
                                             <h4 className="font-black text-sm text-slate-900 uppercase tracking-tight">{item.name}</h4>

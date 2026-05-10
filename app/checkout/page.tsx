@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { clearCart } from '@/store/cartSlice';
-import { FaSpinner, FaMapMarkerAlt, FaCreditCard, FaLock, FaCheckCircle } from 'react-icons/fa';
+import { FaSpinner, FaMapMarkerAlt, FaCreditCard, FaLock, FaCheckCircle, FaTag } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 // Dynamic script loader for Razorpay SDK
@@ -19,50 +19,82 @@ const loadRazorpayScript = () => {
     });
 };
 
-export default function CheckoutPage() {
+function CheckoutContent() {
     const router = useRouter();
     const dispatch = useDispatch();
+
+    // NEW: Grab the coupon code from the URL (e.g., /checkout?coupon=GYMBUDDIES)
+    const searchParams = useSearchParams();
+    const couponCode = searchParams.get('coupon');
 
     const cartItems = useSelector((state: RootState) => state.cart.items);
 
     const [addresses, setAddresses] = useState<any[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState('razorpay'); // Default to Razorpay
+    const [paymentMethod, setPaymentMethod] = useState('razorpay');
     const [loading, setLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // NEW: Dynamic States for Math
+    const [storeSettings, setStoreSettings] = useState({ freeShippingThreshold: 100, standardShippingFee: 10, taxRate: 8 });
+    const [discount, setDiscount] = useState(0);
+
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const shipping = subtotal > 100 ? 0 : 10;
-    const tax = subtotal * 0.08;
-    const total = subtotal + shipping + tax;
 
     useEffect(() => {
         if (cartItems.length === 0) {
             router.push('/shop');
             return;
         }
-        fetchAddresses();
+
+        // Fetch Both Addresses and Store Settings at once
+        Promise.all([
+            fetch('/api/user/addresses').then(res => res.json()),
+            fetch('/api/settings').then(res => res.json())
+        ]).then(([addressData, settingsData]) => {
+            // Apply Settings
+            if (settingsData) setStoreSettings(settingsData);
+
+            // Apply Addresses
+            const userAddresses = addressData.addresses || [];
+            setAddresses(userAddresses);
+            const defaultAddr = userAddresses.find((addr: any) => addr.isDefault);
+            if (defaultAddr) setSelectedAddressId(defaultAddr._id);
+            else if (userAddresses.length > 0) setSelectedAddressId(userAddresses[0]._id);
+
+            setLoading(false);
+        }).catch(() => {
+            toast.error("Failed to load checkout data");
+            setLoading(false);
+        });
     }, [cartItems]);
 
-    const fetchAddresses = async () => {
-        try {
-            const res = await fetch('/api/user/addresses');
-            const data = await res.json();
-            const userAddresses = data.addresses || [];
-            setAddresses(userAddresses);
-
-            const defaultAddr = userAddresses.find((addr: any) => addr.isDefault);
-            if (defaultAddr) {
-                setSelectedAddressId(defaultAddr._id);
-            } else if (userAddresses.length > 0) {
-                setSelectedAddressId(userAddresses[0]._id);
-            }
-        } catch (error) {
-            toast.error("Failed to load addresses");
-        } finally {
-            setLoading(false);
+    // NEW: Validate Coupon from URL to get the discount amount
+    useEffect(() => {
+        if (couponCode && subtotal > 0) {
+            fetch("/api/coupons/validate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: couponCode, subtotal })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.discountValue) {
+                        const calculatedDiscount = data.discountType === 'percentage'
+                            ? (subtotal * data.discountValue) / 100
+                            : data.discountValue;
+                        setDiscount(calculatedDiscount);
+                    }
+                })
+                .catch(() => console.error("Failed to validate coupon"));
         }
-    };
+    }, [couponCode, subtotal]);
+
+    // NEW: 100% Dynamic Math
+    const shipping = subtotal >= storeSettings.freeShippingThreshold || subtotal === 0 ? 0 : storeSettings.standardShippingFee;
+    const discountedSubtotal = Math.max(0, subtotal - discount);
+    const tax = discountedSubtotal * (storeSettings.taxRate / 100);
+    const total = discountedSubtotal + shipping + tax;
 
     const handlePlaceOrder = async () => {
         if (!selectedAddressId) {
@@ -85,7 +117,8 @@ export default function CheckoutPage() {
                         subtotal,
                         tax,
                         shippingFee: shipping,
-                        totalAmount: total
+                        totalAmount: total,
+                        couponCode // <-- Pass the coupon to the backend!
                     }),
                 });
 
@@ -111,17 +144,15 @@ export default function CheckoutPage() {
         }
 
         try {
-            // 1. Create Order on Server to get Razorpay Order ID
             const orderRes = await fetch("/api/razorpay", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ amount: total }),
+                body: JSON.stringify({ amount: total }), // Uses dynamic total
             });
 
             if (!orderRes.ok) throw new Error("Failed to initialize payment");
             const razorpayOrder = await orderRes.json();
 
-            // 2. Configure and Open Razorpay Modal
             const options = {
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                 amount: razorpayOrder.amount,
@@ -136,7 +167,6 @@ export default function CheckoutPage() {
                     }
                 },
                 handler: async function (response: any) {
-                    // 3. Verify and Save Final Order in MongoDB
                     try {
                         const finalRes = await fetch('/api/orders', {
                             method: 'POST',
@@ -151,7 +181,8 @@ export default function CheckoutPage() {
                                 totalAmount: total,
                                 razorpayOrderId: response.razorpay_order_id,
                                 razorpayPaymentId: response.razorpay_payment_id,
-                                razorpaySignature: response.razorpay_signature
+                                razorpaySignature: response.razorpay_signature,
+                                couponCode // <-- Pass the coupon to the backend!
                             }),
                         });
 
@@ -196,7 +227,6 @@ export default function CheckoutPage() {
                     {/* LEFT COLUMN: Shipping & Payment */}
                     <div className="flex-1 space-y-8">
 
-                        {/* Shipping Address Section */}
                         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
                             <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
                                 <FaMapMarkerAlt className="text-[#ec1313]" /> 1. Shipping Address
@@ -230,7 +260,6 @@ export default function CheckoutPage() {
                             )}
                         </div>
 
-                        {/* Payment Method Section */}
                         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
                             <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
                                 <FaCreditCard className="text-[#ec1313]" /> 2. Payment Method
@@ -284,12 +313,21 @@ export default function CheckoutPage() {
                                     <span>Subtotal</span>
                                     <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
                                 </div>
+
+                                {/* VISUAL UPDATE: Shows the discount glowing green if applied */}
+                                {discount > 0 && (
+                                    <div className="flex justify-between text-sm font-medium text-green-600">
+                                        <span className="flex items-center gap-1.5"><FaTag size={10} /> Discount ({couponCode})</span>
+                                        <span className="font-bold">-${discount.toFixed(2)}</span>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-between text-sm font-medium text-slate-600">
                                     <span>Shipping</span>
                                     <span className="font-bold text-slate-900">{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
                                 </div>
                                 <div className="flex justify-between text-sm font-medium text-slate-600">
-                                    <span>Estimated Tax</span>
+                                    <span>Estimated Tax ({storeSettings.taxRate}%)</span>
                                     <span className="font-bold text-slate-900">${tax.toFixed(2)}</span>
                                 </div>
                             </div>
@@ -313,5 +351,14 @@ export default function CheckoutPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// Next.js 14+ requires useSearchParams to be wrapped in a Suspense boundary
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><FaSpinner className="animate-spin text-4xl text-[#ec1313]" /></div>}>
+            <CheckoutContent />
+        </Suspense>
     );
 }

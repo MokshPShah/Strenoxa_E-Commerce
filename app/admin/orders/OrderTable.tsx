@@ -32,7 +32,7 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                 setOrders(orders.map(o => {
                     if (o._id !== orderId) return o;
                     const updatedOrder = { ...o, [field]: newValue };
-                    if (field === 'status' && newValue === 'Delivered' && String(o.paymentMethod).toLowerCase() === 'cod') {
+                    if (field === 'status' && newValue === 'Delivered' && String(o.paymentMethod).toLowerCase() !== 'razorpay') {
                         updatedOrder.paymentStatus = 'Paid';
                     }
                     return updatedOrder;
@@ -40,7 +40,7 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
 
                 if (selectedOrder && selectedOrder._id === orderId) {
                     const updatedModalOrder = { ...selectedOrder, [field]: newValue };
-                    if (field === 'status' && newValue === 'Delivered' && String(selectedOrder.paymentMethod).toLowerCase() === 'cod') {
+                    if (field === 'status' && newValue === 'Delivered' && String(selectedOrder.paymentMethod).toLowerCase() !== 'razorpay') {
                         updatedModalOrder.paymentStatus = 'Paid';
                     }
                     setSelectedOrder(updatedModalOrder);
@@ -89,7 +89,8 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                         <tr>
                             <th className="px-6 py-4">Order Details</th>
                             <th className="px-6 py-4">Customer</th>
-                            <th className="px-6 py-4 text-right">Total</th>
+                            <th className="px-6 py-4">Total</th>
+                            <th className="px-6 py-4">Payment</th>
                             <th className="px-6 py-4 text-center">Delivery</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
@@ -97,7 +98,7 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                     <tbody className="divide-y divide-slate-100">
                         {filteredOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                                     <FaBoxOpen size={32} className="mx-auto mb-3 opacity-50" />
                                     <p className="font-bold">No orders found.</p>
                                 </td>
@@ -106,6 +107,9 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                             filteredOrders.map((order) => {
                                 const customerName = order.user?.name || order.customerName || "Unknown User";
                                 const customerEmail = order.user?.email || order.customerEmail || "N/A";
+
+                                // Safely check if it's Razorpay, otherwise default to COD
+                                const isRazorpay = String(order.paymentMethod).toLowerCase() === 'razorpay';
 
                                 return (
                                     <tr key={order._id} className="hover:bg-slate-50 transition-colors">
@@ -121,8 +125,18 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                                             <p className="font-bold text-slate-900">{customerName}</p>
                                             <p className="text-xs text-slate-500">{customerEmail}</p>
                                         </td>
-                                        <td className="px-6 py-4 font-black text-slate-900 text-right">
+                                        <td className="px-6 py-4 font-black text-slate-900">
                                             ${(order.totalAmount || 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${isRazorpay ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {isRazorpay ? 'Razorpay' : 'COD'}
+                                                </span>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${order.paymentStatus === 'Paid' ? 'text-green-500' : 'text-yellow-500'}`}>
+                                                    {order.paymentStatus || 'Pending'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <select
@@ -249,11 +263,10 @@ export default function OrderTable({ initialOrders }: { initialOrders: any[] }) 
                                         <div className="flex justify-between items-center pb-3 border-b border-slate-50">
                                             <span className="font-medium text-slate-500">Method</span>
                                             <span className="font-bold text-slate-900 flex items-center gap-2">
-                                                {/* FIXED: Bulletproof case-insensitive check */}
-                                                {String(selectedOrder.paymentMethod).toLowerCase() === 'cod' ? (
-                                                    <><FaTruck className="text-slate-400" /> COD</>
-                                                ) : (
+                                                {String(selectedOrder.paymentMethod).toLowerCase() === 'razorpay' ? (
                                                     <><FaCreditCard className="text-blue-500" /> Razorpay</>
+                                                ) : (
+                                                    <><FaTruck className="text-slate-400" /> COD</>
                                                 )}
                                             </span>
                                         </div>

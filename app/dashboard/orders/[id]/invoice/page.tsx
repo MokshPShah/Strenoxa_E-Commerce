@@ -7,41 +7,23 @@ import User from "@/models/User";
 import Order from "@/models/Order";
 import UserDashboardShell from "@/components/UserDashboardShell";
 import DownloadInvoiceButton from "@/components/DownloadInvoiceButton";
-import { FaArrowLeft, FaBox, FaTruck, FaMapMarkerAlt, FaCreditCard, FaCheckCircle } from "react-icons/fa";
+import { FaArrowLeft, FaBox, FaTruck, FaMapMarkerAlt, FaCreditCard, FaCheckCircle, FaTag } from "react-icons/fa";
 
-type Props = {
-    params: Promise<{ id: string }>;
-};
+type Props = { params: Promise<{ id: string }> };
 
-interface PopulatedProduct {
-    _id: string;
-    image?: string;
-    images?: string[];
-}
-
-interface OrderItem {
-    _id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    flavor?: string;
-    productId?: PopulatedProduct | null;
-}
+interface PopulatedProduct { _id: string; image?: string; images?: string[]; }
+interface OrderItem { _id: string; name: string; price: number; quantity: number; flavor?: string; productId?: PopulatedProduct | null; }
 
 export default async function OrderDetailsPage({ params }: Props) {
     const { id } = await params;
 
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-        redirect("/login");
-    }
+    if (!session || !session.user?.email) redirect("/login");
 
     await connectDB();
 
     const dbUser = await User.findOne({ email: session.user.email }).select("_id")
-    if (!dbUser) {
-        redirect("/login");
-    }
+    if (!dbUser) redirect("/login");
 
     const order = await Order.findOne({ _id: id, user: dbUser._id })
         .populate("items.productId", "image images")
@@ -62,14 +44,14 @@ export default async function OrderDetailsPage({ params }: Props) {
         )
     }
 
-    // Sanitize the Mongoose object for the Client Component
     const serializedOrder = JSON.parse(JSON.stringify(order));
 
+    // ACCURATE INVOICE MATH
+    const itemsSubtotal = (order.items as OrderItem[]).reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const discountAmt = order.discountAmount || 0;
+    const shippingFee = order.shippingFee !== undefined ? order.shippingFee : (order.totalAmount > 100 ? 0 : 10);
+    const taxAmt = order.taxAmount || 0;
     const orderTotal = parseFloat(order.totalAmount);
-    const shippingFee = orderTotal > 100 ? 0 : 10;
-    const subTotal = orderTotal - shippingFee;
-
-    // Calculate Total Quantity
     const totalQuantity = (order.items as OrderItem[]).reduce((acc, item) => acc + item.quantity, 0);
 
     const getStatusStyle = (status: string) => {
@@ -87,11 +69,8 @@ export default async function OrderDetailsPage({ params }: Props) {
             {/* Header Navigation */}
             <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8">
                 <div className="flex items-center gap-4">
-                    <Link
-                        href="/dashboard/orders"
-                        className="p-3 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm"
-                    >
-                        <FaArrowLeft size={16} className="cursor-pointer" />
+                    <Link href="/dashboard/orders" className="p-3 bg-white border border-slate-200 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+                        <FaArrowLeft size={16} />
                     </Link>
                     <div>
                         <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase">
@@ -104,16 +83,12 @@ export default async function OrderDetailsPage({ params }: Props) {
                 </div>
 
                 <div className="flex items-center gap-3 md:ml-auto">
-                    <span className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest ${getStatusStyle(order.status)}`}>
-                        {order.status}
-                    </span>
-
+                    <span className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest ${getStatusStyle(order.status)}`}>{order.status}</span>
                     <DownloadInvoiceButton order={serializedOrder} userName={session.user.name || "Customer"} />
                 </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
-
                 {/* Left Column: Items & Totals */}
                 <div className="lg:w-2/3 space-y-6">
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -123,7 +98,7 @@ export default async function OrderDetailsPage({ params }: Props) {
                                 <h2 className="font-black text-slate-900 uppercase tracking-tight">Purchased Items</h2>
                             </div>
                             <span className="bg-slate-50 text-slate-600 font-bold px-4 py-1.5 rounded-lg text-xs uppercase tracking-widest border border-slate-100">
-                                {totalQuantity} Total Items
+                                {totalQuantity} Items
                             </span>
                         </div>
                         <div className="p-4 sm:p-8 space-y-6">
@@ -148,17 +123,32 @@ export default async function OrderDetailsPage({ params }: Props) {
                             })}
                         </div>
 
-                        {/* Financial Summary */}
+                        {/* ACCURATE FINANCIAL SUMMARY */}
                         <div className="bg-slate-50 p-6 sm:p-8 border-t border-slate-100">
                             <div className="max-w-xs ml-auto space-y-3">
                                 <div className="flex justify-between text-sm font-medium text-slate-600">
                                     <span>Subtotal</span>
-                                    <span>${subTotal.toFixed(2)}</span>
+                                    <span>${itemsSubtotal.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-sm font-medium text-slate-600 border-b border-slate-200 pb-3">
+
+                                {/* NEW: DISCOUNT DISPLAY */}
+                                {order.appliedCoupon && (
+                                    <div className="flex justify-between text-sm font-medium text-green-600">
+                                        <span className="flex items-center gap-1.5"><FaTag size={10} /> Discount ({order.appliedCoupon})</span>
+                                        <span>-${discountAmt.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between text-sm font-medium text-slate-600">
                                     <span>Shipping</span>
                                     <span>{shippingFee === 0 ? "Free" : `$${shippingFee.toFixed(2)}`}</span>
                                 </div>
+
+                                <div className="flex justify-between text-sm font-medium text-slate-600 border-b border-slate-200 pb-3">
+                                    <span>Tax</span>
+                                    <span>${taxAmt.toFixed(2)}</span>
+                                </div>
+
                                 <div className="flex justify-between items-center pt-2">
                                     <span className="font-black text-slate-900 uppercase tracking-widest text-sm">Total Paid</span>
                                     <span className="font-black text-[#ec1313] text-xl">${orderTotal.toFixed(2)}</span>
@@ -170,8 +160,6 @@ export default async function OrderDetailsPage({ params }: Props) {
 
                 {/* Right Column: Customer & Shipping Details */}
                 <div className="lg:w-1/3 space-y-6">
-
-                    {/* Shipping Address */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
                             <FaMapMarkerAlt className="text-slate-400" />
@@ -185,7 +173,6 @@ export default async function OrderDetailsPage({ params }: Props) {
                         </address>
                     </div>
 
-                    {/* DYNAMIC Payment Method */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
                             <FaCreditCard className="text-slate-400" />
@@ -211,7 +198,6 @@ export default async function OrderDetailsPage({ params }: Props) {
                             )}
                         </div>
                     </div>
-
                 </div>
             </div>
         </UserDashboardShell>

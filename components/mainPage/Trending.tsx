@@ -88,18 +88,16 @@ export default function Trending() {
                         return (
                             <div key={product._id} className="group flex flex-col relative">
                                 <div className="relative aspect-[4/5] bg-slate-50 rounded-2xl overflow-hidden mb-5 border border-slate-100">
-                                    <div className="absolute top-3 left-3 z-20">
-                                        <div className="absolute top-4 left-4 z-20">
-                                            {isOutOfStock ? (
-                                                <span className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md">
-                                                    Out of Stock
-                                                </span>
-                                            ) : product.isTrending && (
-                                                <span className="bg-[#ec1313] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md shadow-red-500/30">
-                                                    Hot
-                                                </span>
-                                            )}
-                                        </div>
+                                    <div className="absolute top-4 left-4 z-20">
+                                        {isOutOfStock ? (
+                                            <span className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md">
+                                                Out of Stock
+                                            </span>
+                                        ) : product.isTrending && (
+                                            <span className="bg-[#ec1313] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md shadow-red-500/30">
+                                                Hot
+                                            </span>
+                                        )}
                                     </div>
 
                                     <button

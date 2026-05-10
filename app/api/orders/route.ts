@@ -167,6 +167,10 @@ export async function POST(req: Request) {
       user: user._id,
       items: orderItems,
       totalAmount: parseFloat(finalTotalAmount.toFixed(2)),
+      appliedCoupon: couponCode?couponCode.toUpperCase():null,
+      discountAmount: parseFloat(discountAmount.toFixed(2)),
+      shippingFee: parseFloat(shippingFee.toFixed(2)),
+      taxAmount: parseFloat(tax.toFixed(2)),
       status: 'Processing',
       shippingAddress,
       paymentMethod: paymentMethod || 'cod',
@@ -174,7 +178,6 @@ export async function POST(req: Request) {
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
-      appliedCoupon: couponCode ? couponCode.toUpperCase() : null // Store the applied coupon code for reference
     })
 
     // 7. Deduct Inventory Stock
