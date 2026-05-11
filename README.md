@@ -1,83 +1,144 @@
-<br clear="both">
+# 🛒 Strenoxa - Premium E-Commerce Platform
 
-<div>
-  <img style="100%" src="https://capsule-render.vercel.app/api?type=waving&height=100&section=header&reversal=false&text=Hey%20%F0%9F%91%8BWhat's%20Up?&fontSize=70&fontColor=FFFFFF&fontAlign=50&fontAlignY=45&stroke=-&animation=scaleIn&desc=I'm%20Moksh&descSize=20&descAlign=50&descAlignY=85&color=gradient"  />
-</div>
+Strenoxa is a full-featured, high-performance E-Commerce web application built with **Next.js 14+ (App Router)**, **React**, **TypeScript**, **Redux Toolkit**, and **Tailwind CSS**. Designed for a premium shopping experience, it offers a seamless cart workflow, highly secure checkout processes, coupon management, and dynamic tax/shipping calculations.
 
-###
+---
 
-<div align="center">
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=MokshPShah.MokshPShah&"  />
-</div>
+## ✨ Key Features
 
-###
+### 🛍️ User Experience & Cart Management
+- **Dynamic Cart State**: Add, remove, and modify product quantities with real-time state updates powered by Redux Toolkit.
+- **Coupon & Discount System**: Users can apply promo codes (via URL parameters or input), validated directly against the backend for percentage or flat-rate discounts.
+- **Dynamic Math Calculations**: Automatically calculates Subtotal, Discount, Estimated Tax, and Conditional Shipping (e.g., Free shipping thresholds).
 
-<div align="center">
-  <img src="https://skillicons.dev/icons?i=html" height="60" alt="html5 logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=css" height="60" alt="css logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=tailwind" height="60" alt="tailwindcss logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=bootstrap" height="60" alt="bootstrap logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=js" height="60" alt="javascript logo"  />
-  <img width="12" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" height="60" alt="react logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=nextjs" height="60" alt="nextjs logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=ts" height="60" alt="typescript logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=nodejs" height="60" alt="nodejs logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=express" height="60" alt="express logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=mongodb" height="60" alt="mongodb logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=git" height="60" alt="git logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=github" height="60" alt="github logo"  />
-  <img width="12" />
-  <img src="https://skillicons.dev/icons?i=vscode" height="60" alt="vscode logo"  />
-</div>
+### 💳 Checkout & Payment Processing
+- **Razorpay Integration**: Fully integrated online payment flow supporting Credit/Debit Cards, UPI, and Netbanking via dynamic script injection.
+- **Cash on Delivery (COD)**: Alternate offline payment method.
+- **Order Verification**: Secure server-side verification of Razorpay signatures to prevent payment tampering.
+- **Address Book**: Users can save multiple shipping addresses, choose a default, and dynamically select where to ship during the checkout flow.
 
-###
+### ⚙️ Modern Architecture
+- **Next.js 14 App Router**: Utilizes modern React features including Server Components, Client Components (`"use client"`), and `Suspense` boundaries for optimized rendering and URL search param handling.
+- **Fully Type-Safe**: Developed entirely in TypeScript to ensure code reliability and maintainability.
+- **Responsive Design**: Fluid, mobile-first UI built with Tailwind CSS.
 
-<div align="center">
-  <a href="https://www.linkedin.com/in/me-moksh/" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=LinkedIn&logo=linkedin&label=&color=0077B5&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="linkedin logo"  />
-  </a>
-  <a href="mailto:moksh.shah.mps@gmail.com" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=Gmail&logo=gmail&label=&color=D14836&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="gmail logo"  />
-  </a>
-  <a href="https://wa.me/919427390651?text=Hi%21%20I%20found%20your%20profile%20through%20your%20GitHub%20and%20really%20liked%20your%20work.%20I%E2%80%99m%20interested%20in%20discussing%20a%20project%20or%20collaboration%20with%20you.%20Let%20me%20know%20when%20you%E2%80%99re%20available.%20Thanks%21" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=Whatsapp&logo=whatsapp&label=&color=25D366&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="whatsapp logo"  />
-  </a>
-  <a href="https://instagram.com/moksh_2408" target="_blank">
-    <img src="https://img.shields.io/static/v1?message=Instagram&logo=instagram&label=&color=E4405F&logoColor=white&labelColor=&style=for-the-badge" height="25" alt="instagram logo"  />
-  </a>
-</div>
+---
 
-###
+## 🛠️ Technologies Used
 
-<div align="center">
-  <img src="https://streak-stats.demolab.com?user=MokshPShah&locale=en&mode=daily&theme=dracula&hide_border=false&border_radius=5&order=3" height="150" alt="streak graph"  />
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=MokshPShah&radius=16&theme=dracula&area=true&order=5" height="300" alt="activity-graph graph"  />
-</div>
+| Category | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 14 (App Router) |
+| **Language** | TypeScript |
+| **Styling** | Tailwind CSS |
+| **State Management**| Redux Toolkit |
+| **Payment Gateway** | Razorpay SDK |
+| **Icons & UI** | React Icons, React Hot Toast |
+| **Database** | MongoDB (via Mongoose) |
 
-###
+---
 
-<br clear="both">
+## 🏗️ Architecture & Payment Flow
 
-<img src="https://raw.githubusercontent.com/MokshPShah/MokshPShah/output/snake.svg" alt="Snake animation" />
+The checkout process (`app/checkout/page.tsx`) handles complex logic to ensure a smooth transaction:
 
-###
+1. **Initialization**: On load, it concurrently fetches user addresses and global store settings (tax rates, shipping fees) using `Promise.all` for performance.
+2. **Discount Validation**: Detects URL search parameters (e.g., `?coupon=SUMMER20`) within a React `Suspense` boundary, triggering a backend validation API to apply real-time discounts.
+3. **Payment Routing**:
+   - **If COD**: The app directly hits the `/api/orders` endpoint and clears the Redux cart upon success.
+   - **If Razorpay**: The app initializes an order via `/api/razorpay`, invokes the Razorpay frontend SDK, and upon user completion, sends the `razorpay_signature` to `/api/orders` for cryptographic verification.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/MokshPShah/MokshPShah/output/pacman-contribution-graph-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/MokshPShah/MokshPShah/output/pacman-contribution-graph.svg">
-  <img alt="pacman contribution graph" src="https://raw.githubusercontent.com/MokshPShah/MokshPShah/output/pacman-contribution-graph.svg">
-</picture>
+---
 
-###
+## 🚀 Quick Start
+
+### Prerequisites
+
+Ensure you have the following installed on your local machine:
+- [Node.js](https://nodejs.org/en/) (v18 or higher)
+- npm, yarn, pnpm, or bun
+- A Razorpay Developer Account (for API keys)
+- A MongoDB cluster (Atlas or local)
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/MokshPShah/e-commerce.git
+   cd e-commerce
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. **Set up Environment Variables:**
+   Create a `.env.local` file in the root of your project and populate it with your keys:
+   ```env
+   # Razorpay Keys
+   NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
+   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+
+   # Database
+   MONGODB_URI=your_mongodb_connection_string
+
+   # Authentication (NextAuth)
+   NEXTAUTH_SECRET=your_nextauth_secret
+   NEXTAUTH_URL=http://localhost:3000
+   ```
+
+4. **Run the Development Server:**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+   Open http://localhost:3000 with your browser to see the application running.
+
+---
+
+## 📁 Project Structure
+
+A brief overview of the core project structure:
+
+- `app/`: Next.js 14 App Router pages, layouts, and API routes.
+  - `checkout/page.tsx`: Handles the primary checkout UI, Razorpay script loading, and order submission.
+  - `shop/`: Product listing pages.
+  - `dashboard/`: Protected user routes for managing addresses and viewing orders.
+  - `app/api/`: Backend endpoints for orders, razorpay verification, address fetching, and coupon validation.
+- `store/`: Redux Toolkit setup containing the global store and slices (e.g., `cartSlice.ts`).
+- `components/`: Reusable React components (Buttons, Modals, Navbar, Footer).
+- `models/`: Mongoose schemas defining the structure for Users, Orders, Products, and Addresses.
+
+---
+
+## 🔗 API Endpoints
+
+Below are the key backend routes powering the frontend logic:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/user/addresses` | Retrieves the authenticated user's saved shipping addresses. |
+| `GET` | `/api/settings` | Fetches dynamic store configurations (tax rates, shipping fees). |
+| `POST` | `/api/coupons/validate` | Validates a provided coupon code against the cart subtotal. |
+| `POST` | `/api/razorpay` | Communicates with the Razorpay API to generate a new order ID. |
+| `POST` | `/api/orders` | Finalizes the order. Handles Razorpay signature verification OR Cash on Delivery creation. |
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are highly welcome!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
