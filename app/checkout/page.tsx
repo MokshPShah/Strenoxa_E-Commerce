@@ -34,6 +34,7 @@ function CheckoutContent() {
     const [paymentMethod, setPaymentMethod] = useState('razorpay');
     const [loading, setLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isOrderComplete, setIsOrderComplete] = useState(false);
 
     // NEW: Dynamic States for Math
     const [storeSettings, setStoreSettings] = useState({ freeShippingThreshold: 100, standardShippingFee: 10, taxRate: 8 });
@@ -42,7 +43,7 @@ function CheckoutContent() {
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
     useEffect(() => {
-        if (cartItems.length === 0) {
+        if (cartItems.length === 0 && !isOrderComplete) {
             router.push('/shop');
             return;
         }
@@ -126,8 +127,9 @@ function CheckoutContent() {
                 const data = await res.json();
 
                 toast.success("Order placed successfully!");
+                setIsOrderComplete(true);
                 dispatch(clearCart());
-                router.push(`/dashboard/orders?success=true&id=${data.orderId}`);
+                router.push(`/dashboard/orders/${data.orderId}`);
             } catch (error) {
                 toast.error("Failed to process order. Please try again.");
                 setIsProcessing(false);
@@ -190,8 +192,9 @@ function CheckoutContent() {
 
                         const data = await finalRes.json();
                         toast.success("Payment successful!");
+                        setIsOrderComplete(true);
                         dispatch(clearCart());
-                        router.push(`/dashboard/orders?success=true&id=${data.orderId}`);
+                        router.push(`/dashboard/orders/${data.orderId}`);
                     } catch (error) {
                         toast.error("Payment verification failed. Please contact support.");
                         setIsProcessing(false);

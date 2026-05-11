@@ -1,14 +1,17 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Coupon from "@/models/Coupon";
 import Order from "@/models/Order";
+import User from "@/models/User"; // <-- Added User model
 
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session) return NextResponse.json({ message: "Login to use coupons" }, { status: 401 });
+        if (!session || !session.user?.email) {
+            return NextResponse.json({ message: "Login to use coupons" }, { status: 401 });
+        }
 
         const { code, subtotal } = await req.json();
         await connectDB();
@@ -23,7 +26,6 @@ export async function POST(req: Request) {
         // 2. Check Expiry
         const now = new Date();
         const expiryDate = new Date(coupon.expiryDate);
-        // Set expiry to the very last millisecond of that day to prevent timezone bugs
         expiryDate.setUTCHours(23, 59, 59, 999);
 
         if (now > expiryDate) {
@@ -35,10 +37,14 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: `Min order for this coupon is $${coupon.minOrderAmount}` }, { status: 400 });
         }
 
-        // 4. Handle "New Customer Only" Logic
+        // 4. Handle "New Customer Only" Logic (FIXED BUG)
         if (coupon.isNewUserOnly) {
+            // Must fetch the user by email to get their true Mongo _id
+            const dbUser = await User.findOne({ email: session.user.email });
+            if (!dbUser) return NextResponse.json({ message: "User not found" }, { status: 404 });
+
             const orderCount = await Order.countDocuments({
-                user: (session.user as any).id,
+                user: dbUser._id,
                 status: { $ne: 'Cancelled' }
             });
 
