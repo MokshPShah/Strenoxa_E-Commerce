@@ -4,6 +4,10 @@ Strenoxa is a full-featured, high-performance E-Commerce web application built w
 
 ---
 
+**🔗 Live Demo:** [strenoxa.vercel.app](https://strenoxa.vercel.app)
+
+---
+
 ## ✨ Key Features
 
 ### 🛍️ User Experience & Cart Management
