@@ -10,14 +10,22 @@ export async function proxy(req: NextRequest) {
     const isAdmin = token?.role === "admin" || token?.role === "super admin";
 
     // --- 1. EXISTING AUTH PROTECTIONS ---
+
+    // Prevent logged-in users from seeing the login/register pages
     if (token && (pathname === "/login" || pathname === "/register")) {
-        return NextResponse.redirect(new URL("/", req.url));
+        if (isAdmin) {
+            return NextResponse.redirect(new URL("/admin", req.url));
+        } else {
+            return NextResponse.redirect(new URL("/", req.url)); // Normal users go to home
+        }
     }
 
+    // Block non-admins from admin routes
     if (pathname.startsWith("/admin") && !isAdmin) {
         return NextResponse.redirect(new URL("/", req.url));
     }
 
+    // Block unauthenticated users from the user dashboard
     if (pathname.startsWith("/dashboard") && !token) {
         return NextResponse.redirect(new URL("/login", req.url));
     }

@@ -5,8 +5,12 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import {
     FaUser, FaHeart, FaBoxOpen, FaShieldAlt,
-    FaSignOutAlt, FaChevronDown
+    FaSignOutAlt, FaChevronDown,
+    FaTicketAlt,
+    FaCogs,
+    FaMapMarkerAlt
 } from "react-icons/fa";
+import { FaChartLine, FaClipboardList, FaHeadset, FaTags } from "react-icons/fa6";
 
 export default function UserDropdown() {
     const { data: session, status } = useSession();
@@ -64,50 +68,63 @@ export default function UserDropdown() {
                     <div className="px-4 py-3 border-b border-slate-100 mb-2">
                         <p className="text-sm font-black text-slate-900 truncate">{session.user?.name}</p>
                         <p className="text-xs font-medium text-slate-500 truncate">{session.user?.email}</p>
-                        {isAdmin && (
+                        {isAdmin ? (
                             <span className="inline-block mt-1 bg-red-100 text-[#ec1313] text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
                                 {userRole}
+                            </span>
+                        ) : (
+                            <span className="inline-block mt-1 bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center w-fit gap-1">
+                                Strenoxa Member
                             </span>
                         )}
                     </div>
 
                     {/* Admin Link (Only visible to admins) */}
                     {isAdmin && (
-                        <Link
-                            href="/admin"
-                            onClick={() => setIsOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer"
-                        >
-                            <FaShieldAlt className="text-slate-400" /> Admin Dashboard
-                        </Link>
+                        <>
+                            <Link href="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaChartLine className="text-slate-400" /> Dashboard
+                            </Link>
+                            <Link href="/admin/orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaClipboardList className="text-slate-400" /> Manage Orders
+                            </Link>
+                            <Link href="/admin/inventory" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaTags className="text-slate-400" /> Inventory
+                            </Link>
+                            <Link href="/admin/coupons" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaTicketAlt className="text-slate-400" /> Coupons
+                            </Link>
+                            <Link href="/admin/settings" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaCogs className="text-slate-400" /> Store Settings
+                            </Link>
+                        </>
                     )}
 
                     {!isAdmin && (
-                        <Link
-                            href="/dashboard"
-                            onClick={() => setIsOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer"
-                        >
-                            <FaUser className="text-slate-400" /> My Profile
-                        </Link>
+                        <>
+                            <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaUser className="text-slate-400" /> My Profile
+                            </Link>
+                            <Link href="/dashboard/orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaBoxOpen className="text-slate-400" /> Shop Records
+                            </Link>
+                            <Link href="/dashboard/favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaHeart className="text-slate-400" /> Saved Favorites
+                            </Link>
+                            <Link href="/dashboard/addresses" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaMapMarkerAlt className="text-slate-400" /> Address Book
+                            </Link>
+
+                            <div className="border-t border-slate-50 my-1"></div>
+
+                            <a href="mailto:support@strenoxa.com" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer">
+                                <FaHeadset className="text-slate-400" /> Help & Support
+                            </a>
+                        </>
                     )}
 
 
-                    <Link
-                        href="/dashboard/orders"
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer"
-                    >
-                        <FaBoxOpen className="text-slate-400" /> Shop Records (Orders)
-                    </Link>
 
-                    <Link
-                        href="/dashboard/favorites"
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-[#ec1313] transition-colors cursor-pointer"
-                    >
-                        <FaHeart className="text-slate-400" /> Saved Favorites
-                    </Link>
 
                     {/* Logout */}
                     <div className="border-t border-slate-100 mt-2 pt-2">
