@@ -7,16 +7,23 @@ import EditProductForm from "./EditProductForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+type Props = {
+    params: Promise<{ id: string }>;
+};
+
+export default async function EditProductPage({ params }: Props) {
+    // 1. Await the params to comply with Next.js App Router rules
+    const { id } = await params;
+
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
 
     if (userRole !== "admin" && userRole !== "super admin") redirect("/");
 
     await connectDB();
-    
+
     // Fetch the specific product directly from MongoDB
-    const rawProduct = await Product.findById(params.id).lean();
+    const rawProduct = await Product.findById(id).lean();
 
     // Prevent editing if it doesn't exist or is in the recycle bin
     if (!rawProduct || rawProduct.isDeleted) {
@@ -36,9 +43,12 @@ export default async function EditProductPage({ params }: { params: { id: string
         images: rawProduct.images || []
     };
 
+    // 2. Bulletproof Server-to-Client Serialization Boundary Fix
+    const safeProductData = JSON.parse(JSON.stringify(productData));
+
     return (
         <div className="max-w-5xl mx-auto pb-12">
-            <EditProductForm initialData={productData} />
+            <EditProductForm initialData={safeProductData} />
         </div>
     );
 }

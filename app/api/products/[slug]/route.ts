@@ -10,7 +10,7 @@ export async function GET (
     await connectDB()
 
     const { slug } = await params
-    const product = await Product.findOne({ slug: slug })
+    const product = await Product.findOne({ slug: slug, isDeleted: { $ne: true } })
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })

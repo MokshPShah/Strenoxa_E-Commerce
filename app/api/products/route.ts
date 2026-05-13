@@ -31,7 +31,10 @@ export async function GET(req: Request) {
           }
         }
       ]
-      const matchFilters: any = {}
+
+      // --- FIX 1: Hide deleted items from the global Search bar ---
+      const matchFilters: any = { isDeleted: { $ne: true } }
+
       if (category) {
         matchFilters.category = category
       }
@@ -46,7 +49,10 @@ export async function GET(req: Request) {
 
       products = await Product.aggregate(aggerationPipeline)
     } else {
-      let query: any = {}
+
+      // --- FIX 2: Hide deleted items from the main Shop catalog ---
+      let query: any = { isDeleted: { $ne: true } }
+
       if (category) {
         query.category = category
       }
@@ -61,7 +67,7 @@ export async function GET(req: Request) {
       stock: p.stock ?? 0
     }));
 
-    console.log(`[API] Fetched ${normalizedProducts.length} products from DB.`);
+    console.log(`[API] Fetched ${normalizedProducts.length} active products from DB.`);
 
     return NextResponse.json({ products: normalizedProducts }, { status: 200 })
   } catch (error) {

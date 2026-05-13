@@ -9,17 +9,13 @@ import { FaSearch, FaBoxOpen, FaEdit, FaTrash, FaExternalLinkAlt, FaTimes, FaChe
 export default function InventoryTable({ initialProducts }: { initialProducts: any[] }) {
     const [products, setProducts] = useState(initialProducts);
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Inline Stock Editing State
     const [editingStockId, setEditingStockId] = useState<string | null>(null);
     const [newStockValue, setNewStockValue] = useState<number>(0);
-    
-    // Full Edit Modal State
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<any>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const filteredProducts = products.filter(product => 
+    const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -38,44 +34,6 @@ export default function InventoryTable({ initialProducts }: { initialProducts: a
             }
         } catch (error) {
             toast.error("An error occurred while deleting");
-        }
-    };
-
-    // --- FULL EDIT LOGIC (Modal) ---
-    const openEditModal = (product: any) => {
-        setEditingProduct({ ...product }); // Create a copy so we don't edit live state instantly
-        setIsEditModalOpen(true);
-    };
-
-    const handleSaveEdit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsUpdating(true);
-
-        try {
-            const res = await fetch("/api/admin/inventory", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    productId: editingProduct._id,
-                    name: editingProduct.name,
-                    category: editingProduct.category,
-                    price: parseFloat(editingProduct.price),
-                    stock: parseInt(editingProduct.stock)
-                }),
-            });
-
-            if (res.ok) {
-                // Update local UI
-                setProducts(products.map(p => p._id === editingProduct._id ? editingProduct : p));
-                toast.success("Product updated successfully");
-                setIsEditModalOpen(false);
-            } else {
-                toast.error("Failed to update product");
-            }
-        } catch (error) {
-            toast.error("An error occurred");
-        } finally {
-            setIsUpdating(false);
         }
     };
 
@@ -103,8 +61,8 @@ export default function InventoryTable({ initialProducts }: { initialProducts: a
         if (editingStockId === product._id) {
             return (
                 <div className="flex items-center gap-2">
-                    <input 
-                        type="number" 
+                    <input
+                        type="number"
                         min="0"
                         value={newStockValue}
                         onChange={(e) => setNewStockValue(parseInt(e.target.value) || 0)}
@@ -122,12 +80,12 @@ export default function InventoryTable({ initialProducts }: { initialProducts: a
 
         let badgeClass = "bg-red-100 text-red-700";
         let label = "Out of Stock";
-        
+
         if (product.stock > 10) { badgeClass = "bg-green-100 text-green-700"; label = `In Stock (${product.stock})`; }
         else if (product.stock > 0) { badgeClass = "bg-orange-100 text-orange-700"; label = `Low Stock (${product.stock})`; }
 
         return (
-            <button 
+            <button
                 onClick={() => { setEditingStockId(product._id); setNewStockValue(product.stock); }}
                 className={`${badgeClass} px-2 py-1 rounded text-xs font-bold cursor-pointer hover:opacity-80 border border-transparent hover:border-slate-300`}
                 title="Click to quickly edit stock"
@@ -139,13 +97,13 @@ export default function InventoryTable({ initialProducts }: { initialProducts: a
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative">
-            
+
             {/* Search Bar */}
             <div className="p-6 border-b border-slate-100">
                 <div className="relative w-full sm:w-96">
                     <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         placeholder="Search products by name or category..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -175,114 +133,50 @@ export default function InventoryTable({ initialProducts }: { initialProducts: a
                                 </td>
                             </tr>
                         ) : (
-                            filteredProducts.map((product) => (
-                                <tr key={product._id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-slate-100 rounded-lg relative overflow-hidden flex-shrink-0 border border-slate-200 flex items-center justify-center">
-                                                {product.image ? (
-                                                    <Image src={product.image} alt={product.name} fill className="object-cover" />
-                                                ) : (
-                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">No Img</span>
-                                                )}
+                            filteredProducts.map((product) => {
+                                // FIXED: Checks for both the legacy "image" string AND the new "images" array!
+                                const displayImage = product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
+
+                                return (
+                                    <tr key={product._id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-slate-100 rounded-lg relative overflow-hidden flex-shrink-0 border border-slate-200 flex items-center justify-center">
+                                                    {displayImage ? (
+                                                        <Image src={displayImage} alt={product.name} fill className="object-cover mix-blend-multiply" />
+                                                    ) : (
+                                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">No Img</span>
+                                                    )}
+                                                </div>
+                                                <div className="max-w-[200px]">
+                                                    <p className="font-bold text-slate-900 truncate">{product.name}</p>
+                                                    <p className="text-xs text-slate-400 truncate mt-0.5">ID: {product._id.slice(-8).toUpperCase()}</p>
+                                                </div>
                                             </div>
-                                            <div className="max-w-[200px]">
-                                                <p className="font-bold text-slate-900 truncate">{product.name}</p>
-                                                <p className="text-xs text-slate-400 truncate mt-0.5">ID: {product._id.slice(-8)}</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{product.category.replace("-", " ")}</span>
+                                        </td>
+                                        <td className="px-6 py-4 font-black text-slate-900">${(product.price || 0).toFixed(2)}</td>
+                                        <td className="px-6 py-4">
+                                            {getStockDisplay(product)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-end gap-3 text-slate-400">
+                                                <Link href={`/product/${product.slug}`} target="_blank" title="View in Store" className="hover:text-blue-500 transition-colors cursor-pointer p-2"><FaExternalLinkAlt size={14} /></Link>
+
+                                                <Link href={`/admin/inventory/edit/${product._id}`} title="Edit Full Product" className="hover:text-slate-900 transition-colors cursor-pointer p-2"><FaEdit size={16} /></Link>
+
+                                                <button onClick={() => handleDelete(product._id)} title="Delete Product" className="hover:text-red-500 transition-colors cursor-pointer p-2"><FaTrash size={14} /></button>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md uppercase tracking-wider">{product.category}</span>
-                                    </td>
-                                    <td className="px-6 py-4 font-black text-slate-900">${product.price.toFixed(2)}</td>
-                                    <td className="px-6 py-4">
-                                        {getStockDisplay(product)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-3 text-slate-400">
-                                            <Link href={`/product/${product.slug}`} target="_blank" title="View in Store" className="hover:text-blue-500 transition-colors cursor-pointer p-2"><FaExternalLinkAlt size={14} /></Link>
-                                            <button onClick={() => openEditModal(product)} title="Edit Product" className="hover:text-slate-900 transition-colors cursor-pointer p-2"><FaEdit size={16} /></button>
-                                            <button onClick={() => handleDelete(product._id)} title="Delete Product" className="hover:text-red-500 transition-colors cursor-pointer p-2"><FaTrash size={14} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                    </tr>
+                                )
+                            })
                         )}
                     </tbody>
                 </table>
             </div>
-
-            {/* FULL EDIT MODAL */}
-            {isEditModalOpen && editingProduct && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-black text-slate-900 text-lg">Edit Product</h3>
-                            <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-900 cursor-pointer p-1">
-                                <FaTimes size={18} />
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleSaveEdit} className="p-6 flex flex-col gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">Product Name</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={editingProduct.name}
-                                    onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})}
-                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:border-slate-400"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">Category</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={editingProduct.category}
-                                    onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value})}
-                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:border-slate-400"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">Price ($)</label>
-                                    <input 
-                                        type="number" 
-                                        step="0.01"
-                                        required
-                                        value={editingProduct.price}
-                                        onChange={(e) => setEditingProduct({...editingProduct, price: e.target.value})}
-                                        className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold text-[#ec1313] focus:outline-none focus:border-slate-400"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 block">Total Stock</label>
-                                    <input 
-                                        type="number" 
-                                        required
-                                        value={editingProduct.stock}
-                                        onChange={(e) => setEditingProduct({...editingProduct, stock: e.target.value})}
-                                        className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:border-slate-400"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-6 flex gap-3">
-                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">
-                                    Cancel
-                                </button>
-                                <button type="submit" disabled={isUpdating} className="flex-1 py-3 font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-70">
-                                    {isUpdating ? "Saving..." : "Save Changes"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
