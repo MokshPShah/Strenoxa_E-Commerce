@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
         const options = {
             amount: Math.round(amount * 100),
-            currency: "INR",
+            currency: "USD",
             receipt: `receipt_order_${Date.now()}`
         }
 
